@@ -9,6 +9,7 @@ import path from 'path';
 import { env } from './config/env.js';
 import { isDbConnected } from './config/db.js';
 import { requireDb } from './middleware/dbMiddleware.js';
+import { uploadDir } from './middleware/uploadMiddleware.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import routes from './routes/index.js';
 
@@ -58,7 +59,7 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 
 // Static uploads (for local dev; Cloudinary used in cloud)
-app.use('/uploads', express.static(path.resolve('uploads')));
+app.use('/uploads', express.static(uploadDir));
 
 // Root & Healthcheck endpoints (work even if DB is not yet connected)
 app.get('/', (_req, res) => {
