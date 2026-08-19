@@ -23,17 +23,40 @@ app.use(
 );
 app.use(compression());
 
-// Universal CORS handling
+// CORS Configuration for Mobile and Web Clients
+const ALLOWED_ORIGINS = [
+  'https://ecommerce-app-backend-blush.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'http://localhost:8081',
+  'http://localhost:19006'
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
-      if (!origin || env.clientUrl === '*') return callback(null, true);
-      const allowed = env.clientUrl.split(',').map((u) => u.trim());
-      if (allowed.includes(origin) || allowed.includes('*')) {
+      // Allow requests with no origin (React Native Mobile App, Expo, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Check allowed list
+      if (ALLOWED_ORIGINS.includes(origin)) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive fallback for seamless API access
+
+      // Check custom configured CLIENT_URL
+      if (env.clientUrl && env.clientUrl !== '*') {
+        const customAllowed = env.clientUrl.split(',').map((u) => u.trim());
+        if (customAllowed.includes(origin)) {
+          return callback(null, true);
+        }
+      }
+
+      // Allow wildcard in development or fallback
+      if (env.clientUrl === '*' || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
