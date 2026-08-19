@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Runtime uploaded media
+uploads/
+temp/
+
+# Logs & Debugging
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# System & Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
