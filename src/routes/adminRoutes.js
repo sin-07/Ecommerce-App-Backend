@@ -4,6 +4,7 @@ import {
   getAdminProducts,
   getUsers,
   removeUser,
+  updateProductStatus,
   updateUserStatus
 } from '../controllers/adminController.js';
 import { createProduct, deleteProduct, updateProduct } from '../controllers/productController.js';
@@ -21,6 +22,7 @@ router.get('/users', getUsers);
 router.patch('/users/:id/status', updateUserStatus);
 router.delete('/users/:id', removeUser);
 router.get('/products', getAdminProducts);
+router.patch('/products/:id/status', updateProductStatus);
 router.post('/products', upload.single('image'), validate(validateCreateProduct), createProduct);
 router.put('/products/:id', upload.single('image'), validate(validateUpdateProduct), updateProduct);
 router.delete('/products/:id', deleteProduct);

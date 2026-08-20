@@ -3,6 +3,8 @@ import {
   createProduct as createProductService,
   deleteProduct as deleteProductService,
   getCategories as getCategoriesService,
+  getFrequentlyBoughtTogether as getFrequentlyBoughtTogetherService,
+  getPersonalizedRecommendations as getPersonalizedRecommendationsService,
   getProductById as getProductByIdService,
   getProducts as getProductsService,
   getSellerProducts as getSellerProductsService,
@@ -68,4 +70,14 @@ export const deleteProduct = async (req, res) => {
 export const getSellerProducts = async (req, res) => {
   const products = await getSellerProductsService(req.user._id);
   return success(res, products, 'Seller products fetched');
+};
+
+export const getPersonalizedRecommendations = async (req, res) => {
+  const data = await getPersonalizedRecommendationsService({ userId: req.user?._id });
+  return success(res, data, 'Personalized recommendations fetched');
+};
+
+export const getFrequentlyBoughtTogether = async (req, res) => {
+  const products = await getFrequentlyBoughtTogetherService(req.params.id);
+  return success(res, products, 'Frequently bought together products fetched');
 };

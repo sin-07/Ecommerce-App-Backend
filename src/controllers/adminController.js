@@ -4,35 +4,123 @@ import { User } from '../models/User.js';
 import { paginated, success } from '../utils/apiResponse.js';
 
 export const dashboard = async (_req, res) => {
-  const [users, totalProducts, activeProducts, lowStock, outOfStock, featuredProducts, orders, totalRevenueAgg] = await Promise.all([
+  const [userCount, productStatsAgg, orderStatsAgg] = await Promise.all([
     User.countDocuments(),
-    Product.countDocuments(),
-    Product.countDocuments({ isActive: true }),
-    Product.countDocuments({ isActive: true, stock: { $gt: 0, $lt: 10 } }),
-    Product.countDocuments({ stock: 0 }),
-    Product.countDocuments({ isActive: true, isFeatured: true }),
-    Order.countDocuments(),
-    Order.aggregate([{ $group: { _id: null, total: { $sum: '$totalAmount' } } }])
+    Product.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalProducts: { $sum: 1 },
+          activeProducts: { $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] } },
+          lowStock: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$isActive', true] },
+                    { $gt: ['$stock', 0] },
+                    { $lt: ['$stock', 10] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          outOfStock: { $sum: { $cond: [{ $eq: ['$stock', 0] }, 1, 0] } },
+          featuredProducts: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$isActive', true] },
+                    { $eq: ['$isFeatured', true] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]),
+    Order.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' }
+        }
+      }
+    ])
   ]);
 
-  const revenue = totalRevenueAgg[0]?.total || 0;
+  const pStats = productStatsAgg[0] || {
+    totalProducts: 0,
+    activeProducts: 0,
+    lowStock: 0,
+    outOfStock: 0,
+    featuredProducts: 0
+  };
+  const oStats = orderStatsAgg[0] || { totalOrders: 0, revenue: 0 };
 
-  return success(res, {
-    users,
-    products: activeProducts,
-    totalProducts,
-    activeProducts,
-    lowStock,
-    outOfStock,
-    featuredProducts,
-    orders,
-    totalOrders: orders,
-    revenue
-  }, 'Dashboard metrics');
+  return success(
+    res,
+    {
+      users: userCount,
+      products: pStats.activeProducts,
+      totalProducts: pStats.totalProducts,
+      activeProducts: pStats.activeProducts,
+      lowStock: pStats.lowStock,
+      outOfStock: pStats.outOfStock,
+      featuredProducts: pStats.featuredProducts,
+      orders: oStats.totalOrders,
+      totalOrders: oStats.totalOrders,
+      revenue: Math.round(Number(oStats.revenue || 0) * 100) / 100
+    },
+    'Dashboard metrics'
+  );
 };
 
-export const getUsers = async (_req, res) => {
-  const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+export const getUsers = async (req, res) => {
+  const page = req.query.page ? Math.max(1, Number(req.query.page)) : null;
+  const limit = req.query.limit ? Math.min(50, Math.max(1, Number(req.query.limit))) : (page ? 20 : null);
+  const role = req.query.role ? String(req.query.role).trim() : null;
+  const search = req.query.search ? String(req.query.search).trim() : null;
+
+  const query = {};
+  if (role) query.role = role;
+  if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.$or = [
+      { name: { $regex: escaped, $options: 'i' } },
+      { email: { $regex: escaped, $options: 'i' } },
+      { companyName: { $regex: escaped, $options: 'i' } },
+      { phone: { $regex: escaped, $options: 'i' } }
+    ];
+  }
+
+  if (page) {
+    const skip = (page - 1) * limit;
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(query)
+    ]);
+    return paginated(res, users, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Users fetched');
+  }
+
+  const users = await User.find(query)
+    .select('-password')
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
   return success(res, users, 'Users fetched');
 };
 
@@ -97,4 +185,18 @@ export const getAdminProducts = async (req, res) => {
   ]);
 
   return paginated(res, products, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Products fetched');
+};
+
+export const updateProductStatus = async (req, res) => {
+  const { isActive } = req.body;
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  product.isActive = Boolean(isActive);
+  await product.save();
+
+  return success(res, product, `Product marked as ${product.isActive ? 'active' : 'inactive'}`);
 };

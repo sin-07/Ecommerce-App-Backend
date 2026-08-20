@@ -2,22 +2,30 @@ import mongoose from 'mongoose';
 import dns from 'dns';
 import { env } from './env.js';
 
-let cachedConnection = null;
-let connectionPromise = null;
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 /**
  * Connects to MongoDB with connection caching for serverless environments (Vercel).
- * Reuses existing active connection if already established.
+ * Reuses existing active connection if already established across warm invocations.
  */
 export const connectDb = async () => {
   // If already connected, reuse existing connection immediately
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
+
   if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
+    cached.conn = mongoose.connection;
+    return cached.conn;
   }
 
   // If connection is in-flight, await the existing promise
-  if (connectionPromise) {
-    return connectionPromise;
+  if (cached.promise) {
+    return cached.promise;
   }
 
   if (!env.isDbConfigured || !env.mongoUri) {
@@ -36,19 +44,22 @@ export const connectDb = async () => {
       }
     }
 
-    connectionPromise = mongoose.connect(env.mongoUri, {
+    cached.promise = mongoose.connect(env.mongoUri, {
       maxPoolSize: 10,
+      minPoolSize: 0,
+      maxIdleTimeMS: 30000,
+      connectTimeoutMS: 10000,
       serverSelectionTimeoutMS: 7000,
       socketTimeoutMS: 45000,
       bufferCommands: false
     });
 
-    cachedConnection = await connectionPromise;
-    console.log('[MongoDB] Connected successfully');
-    return cachedConnection;
+    cached.conn = await cached.promise;
+    console.log('[MongoDB] Connected successfully (pooled & cached)');
+    return cached.conn;
   } catch (error) {
-    connectionPromise = null;
-    cachedConnection = null;
+    cached.promise = null;
+    cached.conn = null;
 
     const isSrvDnsError =
       error?.code === 'ECONNREFUSED' &&

@@ -2,13 +2,18 @@ import { Cart } from '../models/Cart.js';
 import { Product } from '../models/Product.js';
 import { success } from '../utils/apiResponse.js';
 
+const cartPopulateOptions = {
+  path: 'items.product',
+  select: 'name price discount stock minOrderQuantity sku unit packSize badge imageUrl category isActive pricingTiers'
+};
+
 const findOrCreateCart = async (userId) => {
   // Atomic upsert: one DB round-trip instead of find + conditionally create
   const cart = await Cart.findOneAndUpdate(
     { user: userId },
     { $setOnInsert: { user: userId, items: [] } },
     { upsert: true, new: true }
-  ).populate('items.product');
+  ).populate(cartPopulateOptions);
   return cart;
 };
 
@@ -29,7 +34,7 @@ export const addToCart = async (req, res) => {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
-  if (product.stock < 10) {
+  if (product.stock < 1) {
     return res.status(400).json({ success: false, message: 'Product is out of stock' });
   }
 
@@ -57,7 +62,7 @@ export const addToCart = async (req, res) => {
   }
 
   await cart.save();
-  const populated = await cart.populate('items.product');
+  const populated = await cart.populate(cartPopulateOptions);
 
   return success(res, populated, 'Item added to cart');
 };
@@ -80,7 +85,7 @@ export const updateCartItem = async (req, res) => {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
-  if (product.stock < 10) {
+  if (product.stock < 1) {
     return res.status(400).json({ success: false, message: 'Product is out of stock' });
   }
 
@@ -98,7 +103,7 @@ export const updateCartItem = async (req, res) => {
   cart.items[idx].quantity = Number(quantity);
   await cart.save();
 
-  const populated = await cart.populate('items.product');
+  const populated = await cart.populate(cartPopulateOptions);
   return success(res, populated, 'Cart updated');
 };
 
@@ -109,7 +114,7 @@ export const removeCartItem = async (req, res) => {
   cart.items = cart.items.filter((item) => String(item.product._id || item.product) !== productId);
   await cart.save();
 
-  const populated = await cart.populate('items.product');
+  const populated = await cart.populate(cartPopulateOptions);
   return success(res, populated, 'Item removed');
 };
 

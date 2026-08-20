@@ -164,9 +164,35 @@ const orderSchema = new mongoose.Schema(
     notes: {
       type: String,
       default: ''
+    },
+    estimatedDeliveryDate: {
+      type: Date,
+      default: null
+    },
+    estimatedDeliverySlot: {
+      type: String,
+      default: ''
+    },
+    dispatchedAt: {
+      type: Date,
+      default: null
+    },
+    deliveredAt: {
+      type: Date,
+      default: null
+    },
+    idempotencyKey: {
+      type: String,
+      sparse: true,
+      index: true
     }
   },
   { timestamps: true }
 );
+
+orderSchema.index({ buyer: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
 
 export const Order = mongoose.model('Order', orderSchema);

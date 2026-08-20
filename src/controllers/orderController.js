@@ -3,13 +3,26 @@ import { Cart } from '../models/Cart.js';
 import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
+import { createInAppNotification } from './notificationController.js';
 import { sendPushToUsers } from '../services/pushNotificationService.js';
 import { sendOrderEmailNotification, sendAdminNewOrderNotification } from '../services/emailService.js';
-import { success } from '../utils/apiResponse.js';
+import { paginated, success } from '../utils/apiResponse.js';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 const getTieredUnitPrice = (product, quantity) => {
+  if (product.pricingTiers && Array.isArray(product.pricingTiers) && product.pricingTiers.length > 0) {
+    const matchedTier = product.pricingTiers.find((t) => {
+      if (t.maxQty != null) {
+        return quantity >= t.minQty && quantity <= t.maxQty;
+      }
+      return quantity >= t.minQty;
+    });
+    if (matchedTier && matchedTier.price > 0) {
+      return round2(matchedTier.price);
+    }
+  }
+
   const moq = Math.max(1, product.minOrderQuantity || 1);
   const base = Number(product.price || 0);
   const secondQty = Math.max(moq + 5, moq * 5);
@@ -20,13 +33,16 @@ const getTieredUnitPrice = (product, quantity) => {
   return round2(base);
 };
 
-const mapCartToOrderItems = async (cartItems) => {
-  const products = await Promise.all(
-    cartItems.map((item) => Product.findById(item.product._id || item.product))
-  );
+const mapCartToOrderItems = async (cartItems, session = null) => {
+  const productIds = cartItems.map((item) => item.product._id || item.product);
+  const query = Product.find({ _id: { $in: productIds } });
+  if (session) query.session(session);
+  const products = await query.lean();
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
 
-  return cartItems.map((item, i) => {
-    const product = products[i];
+  return cartItems.map((item) => {
+    const pid = String(item.product._id || item.product);
+    const product = productMap.get(pid);
     if (!product || !product.isActive) {
       throw new Error('Invalid or inactive product in cart');
     }
@@ -64,6 +80,20 @@ const mapCartToOrderItems = async (cartItems) => {
 };
 
 export const placeOrder = async (req, res) => {
+  const idempotencyKey = req.body.idempotencyKey || req.headers['x-idempotency-key'] || null;
+
+  // Duplicate submission protection
+  if (idempotencyKey && typeof idempotencyKey === 'string' && idempotencyKey.trim()) {
+    const cleanKey = idempotencyKey.trim();
+    const existingOrder = await Order.findOne({ idempotencyKey: cleanKey })
+      .populate('buyer', 'name email phone companyName')
+      .populate('items.product', 'imageUrl category unit packSize name price')
+      .lean();
+    if (existingOrder) {
+      return success(res, existingOrder, 'Order placed successfully', 200);
+    }
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -152,7 +182,7 @@ export const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cart is empty' });
     }
 
-    const orderItems = await mapCartToOrderItems(cart.items);
+    const orderItems = await mapCartToOrderItems(cart.items, session);
     const subtotal = round2(orderItems.reduce((sum, item) => sum + item.lineTotal, 0));
     const deliveryFee = Number(req.body.deliveryFee || 0);
     const discount = Number(req.body.discount || 0);
@@ -162,29 +192,30 @@ export const placeOrder = async (req, res) => {
     const amountDue = Math.max(0, round2(totalAmount - amountPaid));
     const paymentStatus = amountPaid >= totalAmount ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE';
 
-    const [order] = await Order.create(
-      [
-        {
-          buyer: req.user._id,
-          items: orderItems,
-          subtotal,
-          deliveryFee,
-          discount,
-          totalAmount,
-          amountPaid,
-          amountDue,
-          paymentStatus,
-          customerName: contactName,
-          phoneNumber: cleanPhone,
-          shippingAddress: formattedShippingAddress,
-          deliveryAddress: structuredDeliveryAddress,
-          deliveryAddressDetails: structuredDeliveryAddress,
-          status: 'pending',
-          notes: orderNotes
-        }
-      ],
-      { session }
-    );
+    const orderPayload = {
+      buyer: req.user._id,
+      items: orderItems,
+      subtotal,
+      deliveryFee,
+      discount,
+      totalAmount,
+      amountPaid,
+      amountDue,
+      paymentStatus,
+      customerName: contactName,
+      phoneNumber: cleanPhone,
+      shippingAddress: formattedShippingAddress,
+      deliveryAddress: structuredDeliveryAddress,
+      deliveryAddressDetails: structuredDeliveryAddress,
+      status: 'pending',
+      notes: orderNotes
+    };
+
+    if (idempotencyKey && typeof idempotencyKey === 'string' && idempotencyKey.trim()) {
+      orderPayload.idempotencyKey = idempotencyKey.trim();
+    }
+
+    const [order] = await Order.create([orderPayload], { session });
 
     cart.items = [];
     await cart.save({ session });
@@ -216,6 +247,15 @@ export const placeOrder = async (req, res) => {
       buyer: req.user
     }).catch((err) => console.error('[Admin Order Email Error]', err.message));
 
+    // Create in-app notification for the customer
+    createInAppNotification({
+      recipient: req.user._id,
+      title: 'Order Confirmed',
+      message: `Your wholesale order #${String(order._id).slice(-6).toUpperCase()} for ₹${order.totalAmount} has been placed.`,
+      type: 'order',
+      metadata: { orderId: String(order._id), status: 'pending' }
+    }).catch((err) => console.error('[InApp Notification Error]', err.message));
+
     return success(res, order, 'Order placed successfully', 201);
   } catch (error) {
     await session.abortTransaction();
@@ -226,28 +266,101 @@ export const placeOrder = async (req, res) => {
 };
 
 export const getBuyerOrders = async (req, res) => {
-  const orders = await Order.find({ buyer: req.user._id })
+  const page = req.query.page ? Math.max(1, Number(req.query.page)) : null;
+  const limit = req.query.limit ? Math.min(50, Math.max(1, Number(req.query.limit))) : (page ? 20 : null);
+  const status = req.query.status ? String(req.query.status).trim() : null;
+
+  const query = { buyer: req.user._id };
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+
+  if (page) {
+    const skip = (page - 1) * limit;
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .populate('items.product', 'imageUrl category unit packSize name price')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Order.countDocuments(query)
+    ]);
+    return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Order history fetched');
+  }
+
+  const orders = await Order.find(query)
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
+    .limit(50)
     .lean();
+
   return success(res, orders, 'Order history fetched');
 };
 
 export const getSellerOrders = async (req, res) => {
-  const orders = await Order.find({ 'items.seller': req.user._id })
+  const page = req.query?.page ? Math.max(1, Number(req.query.page)) : null;
+  const limit = req.query?.limit ? Math.min(50, Math.max(1, Number(req.query.limit))) : (page ? 20 : null);
+
+  const query = { 'items.seller': req.user._id };
+
+  if (page) {
+    const skip = (page - 1) * limit;
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .populate('buyer', 'name email phone companyName')
+        .populate('items.product', 'imageUrl category unit packSize name price')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Order.countDocuments(query)
+    ]);
+    return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Seller orders fetched');
+  }
+
+  const orders = await Order.find(query)
     .populate('buyer', 'name email phone companyName')
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
+    .limit(50)
     .lean();
+
   return success(res, orders, 'Seller orders fetched');
 };
 
-export const getAllOrders = async (_req, res) => {
-  const orders = await Order.find({})
+export const getAllOrders = async (req, res) => {
+  const page = req.query?.page ? Math.max(1, Number(req.query.page)) : null;
+  const limit = req.query?.limit ? Math.min(50, Math.max(1, Number(req.query.limit))) : (page ? 20 : null);
+  const status = req.query?.status ? String(req.query.status).trim() : null;
+
+  const query = {};
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+
+  if (page) {
+    const skip = (page - 1) * limit;
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .populate('buyer', 'name email phone companyName')
+        .populate('items.product', 'imageUrl category unit packSize name price')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Order.countDocuments(query)
+    ]);
+    return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'All orders fetched');
+  }
+
+  const orders = await Order.find(query)
     .populate('buyer', 'name email phone companyName')
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
+    .limit(50)
     .lean();
+
   return success(res, orders, 'All orders fetched');
 };
 
@@ -299,13 +412,14 @@ export const updateOrderStatus = async (req, res) => {
     const shouldDeductStock = (status === 'packed' || status === 'confirmed') && order.status === 'pending';
 
     if (shouldDeductStock) {
-      const products = await Promise.all(
-        order.items.map((item) => Product.findById(item.product).session(session))
-      );
+      const productIds = order.items.map((item) => item.product._id || item.product);
+      const products = await Product.find({ _id: { $in: productIds } }).session(session);
+      const productMap = new Map(products.map((p) => [String(p._id), p]));
 
       for (let i = 0; i < order.items.length; i++) {
         const item = order.items[i];
-        const product = products[i];
+        const pid = String(item.product._id || item.product);
+        const product = productMap.get(pid);
         if (!product || !product.isActive) {
           throw new Error('Invalid product in order');
         }
@@ -357,6 +471,15 @@ export const updateOrderStatus = async (req, res) => {
           status
         }).catch((err) => console.error('[Order Status Email Error]', err.message));
       }
+
+      // Create in-app notification for the buyer
+      createInAppNotification({
+        recipient: order.buyer?._id || order.buyer,
+        title: `Order #${String(order._id).slice(-6).toUpperCase()} ${status.toUpperCase()}`,
+        message: `Your wholesale order status is now ${status}.`,
+        type: status === 'delivered' ? 'delivery' : 'order',
+        metadata: { orderId: String(order._id), status }
+      }).catch((err) => console.error('[InApp Notification Error]', err.message));
     }
 
     return success(res, order, 'Order status updated');
@@ -366,4 +489,87 @@ export const updateOrderStatus = async (req, res) => {
   } finally {
     session.endSession();
   }
+};
+
+export const getBuyAgainProducts = async (req, res) => {
+  // Fetch real past non-cancelled orders placed by the current authenticated buyer
+  const orders = await Order.find({
+    buyer: req.user._id,
+    status: { $ne: 'cancelled' }
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (!orders || orders.length === 0) {
+    return success(res, [], 'No previous purchase history');
+  }
+
+  // Collect distinct product IDs and their most recent ordered quantities
+  const productMap = new Map(); // productId -> { previousQuantity, lastOrderedAt }
+  for (const order of orders) {
+    for (const item of order.items || []) {
+      const pid = String(item.product?._id || item.product);
+      if (pid && !productMap.has(pid)) {
+        productMap.set(pid, {
+          previousQuantity: item.quantity || 1,
+          lastOrderedAt: order.createdAt
+        });
+      }
+    }
+  }
+
+  const productIds = Array.from(productMap.keys());
+  const liveProducts = await Product.find({
+    _id: { $in: productIds },
+    isActive: true
+  }).lean();
+
+  const buyAgainItems = liveProducts.map((prod) => {
+    const meta = productMap.get(String(prod._id)) || { previousQuantity: 1, lastOrderedAt: prod.updatedAt };
+    return {
+      ...prod,
+      previousQuantity: meta.previousQuantity,
+      lastOrderedAt: meta.lastOrderedAt
+    };
+  });
+
+  return success(res, buyAgainItems, 'Buy again products fetched');
+};
+
+export const getCustomerStats = async (req, res) => {
+  const orders = await Order.find({ buyer: req.user._id }).lean();
+
+  const totalOrders = orders.length;
+  let inTransitOrders = 0;
+  let completedOrders = 0;
+  let totalSpend = 0;
+  let totalPaid = 0;
+  let totalDue = 0;
+
+  for (const order of orders) {
+    if (order.status !== 'cancelled') {
+      totalSpend += Number(order.totalAmount || 0);
+      totalPaid += Number(order.amountPaid || 0);
+      totalDue += Number(order.amountDue !== undefined ? order.amountDue : Math.max(0, order.totalAmount - (order.amountPaid || 0)));
+    }
+
+    if (['pending', 'processing', 'confirmed', 'packed', 'shipped', 'dispatched'].includes(order.status)) {
+      inTransitOrders++;
+    } else if (order.status === 'delivered') {
+      completedOrders++;
+    }
+  }
+
+  return success(
+    res,
+    {
+      totalOrders,
+      inTransitOrders,
+      completedOrders,
+      totalSpend: round2(totalSpend),
+      totalPaid: round2(totalPaid),
+      totalDue: round2(totalDue)
+    },
+    'Customer stats fetched'
+  );
 };

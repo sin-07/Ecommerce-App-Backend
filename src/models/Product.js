@@ -86,14 +86,50 @@ const productSchema = new mongoose.Schema(
     tags: {
       type: [String],
       default: []
+    },
+    images: {
+      type: [String],
+      default: []
+    },
+    pricingTiers: {
+      type: [
+        {
+          minQty: { type: Number, required: true },
+          maxQty: { type: Number, default: null },
+          price: { type: Number, required: true },
+          discountPercentage: { type: Number, default: 0 }
+        }
+      ],
+      default: []
+    },
+    specifications: {
+      type: [
+        {
+          key: { type: String, required: true, trim: true },
+          value: { type: String, required: true, trim: true }
+        }
+      ],
+      default: []
+    },
+    priceHistory: {
+      type: [
+        {
+          price: { type: Number, required: true },
+          date: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
     }
   },
   { timestamps: true }
 );
 
 productSchema.index({ name: 'text', description: 'text', category: 'text' });
-// Compound indexes for the two most common query patterns
 productSchema.index({ isActive: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, category: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, isFeatured: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, isBestSeller: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, stock: 1 });
 productSchema.index({ seller: 1, isActive: 1 });
 
 export const Product = mongoose.model('Product', productSchema);

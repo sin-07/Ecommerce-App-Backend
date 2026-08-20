@@ -53,6 +53,32 @@ export const protect = async (req, res, next) => {
   }
 };
 
+export const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, env.jwtSecret);
+    const cached = getCachedUser(token);
+    if (cached) {
+      req.user = cached;
+      return next();
+    }
+
+    const user = await User.findById(decoded.id).select('-password');
+    if (user && user.isActive) {
+      setCachedUser(token, user, decoded.exp);
+      req.user = user;
+    }
+  } catch {
+    // Ignore invalid tokens for optional auth
+  }
+  return next();
+};
+
 export const restrictTo = (...roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Forbidden' });

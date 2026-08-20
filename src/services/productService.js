@@ -100,7 +100,7 @@ export const getProducts = async ({
   sortBy = 'newest'
 }) => {
   const safePage = Math.max(1, Number(page));
-  const safeLimit = Math.min(100, Math.max(1, Number(limit)));
+  const safeLimit = Math.min(50, Math.max(1, Number(limit)));
   const skip = (safePage - 1) * safeLimit;
   const query = { isActive: true };
 
@@ -109,7 +109,6 @@ export const getProducts = async ({
     const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     query.$or = [
       { name: regex },
-      { description: regex },
       { category: regex },
       { sku: regex },
       { tags: regex },
@@ -118,7 +117,8 @@ export const getProducts = async ({
   }
 
   if (category && String(category).trim() && String(category).toLowerCase() !== 'all') {
-    query.category = { $regex: new RegExp(`^${String(category).trim()}$`, 'i') };
+    const escapedCategory = String(category).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.category = { $regex: new RegExp(`^${escapedCategory}$`, 'i') };
   }
 
   if (sellerId) {
@@ -147,6 +147,7 @@ export const getProducts = async ({
 
   const [items, total] = await Promise.all([
     Product.find(query)
+      .select('_id name price discount stock minOrderQuantity sku unit packSize badge imageUrl isFeatured isBestSeller isActive category seller pricingTiers createdAt')
       .populate('seller', 'name companyName')
       .sort(sortCriteria)
       .skip(skip)
@@ -239,4 +240,121 @@ export const deleteProduct = async ({ id, sellerId, role }) => {
 
 export const getSellerProducts = async (sellerId) => {
   return Product.find({ seller: sellerId, isActive: true }).sort({ createdAt: -1 }).lean();
+};
+
+export const getPersonalizedRecommendations = async ({ userId }) => {
+  const { Order } = await import('../models/Order.js');
+  let topCategory = null;
+  let purchasedProductIds = new Set();
+
+  if (userId) {
+    const pastOrders = await Order.find({ buyer: userId, status: { $ne: 'cancelled' } })
+      .select('items createdAt')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    if (pastOrders && pastOrders.length > 0) {
+      const categoryCounts = {};
+      pastOrders.forEach((ord) => {
+        (ord.items || []).forEach((item) => {
+          if (item.product) purchasedProductIds.add(String(item.product));
+          const cat = item.category || 'General';
+          categoryCounts[cat] = (categoryCounts[cat] || 0) + (item.quantity || 1);
+        });
+      });
+
+      const sortedCategories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+      if (sortedCategories.length > 0) {
+        topCategory = sortedCategories[0][0];
+      }
+    }
+  }
+
+  let products = [];
+  let title = 'Recommended for Your Business';
+
+  if (topCategory) {
+    title = `Because you bought ${topCategory}`;
+    products = await Product.find({
+      category: topCategory,
+      isActive: true,
+      stock: { $gt: 0 }
+    })
+      .sort({ isBestSeller: -1, isFeatured: -1, createdAt: -1 })
+      .limit(6)
+      .lean();
+  }
+
+  if (!products || products.length === 0) {
+    title = 'Trending Wholesale Supplies';
+    products = await Product.find({
+      isActive: true,
+      stock: { $gt: 0 },
+      $or: [{ isFeatured: true }, { isBestSeller: true }]
+    })
+      .sort({ isBestSeller: -1, isFeatured: -1, createdAt: -1 })
+      .limit(6)
+      .lean();
+  }
+
+  return {
+    title,
+    reasonCategory: topCategory || 'General',
+    products
+  };
+};
+
+export const getFrequentlyBoughtTogether = async (productId) => {
+  const { Order } = await import('../models/Order.js');
+
+  const orders = await Order.find({
+    'items.product': productId,
+    status: { $ne: 'cancelled' }
+  })
+    .select('items')
+    .limit(50)
+    .lean();
+
+  const frequencyMap = {};
+  orders.forEach((ord) => {
+    (ord.items || []).forEach((item) => {
+      const pid = String(item.product?._id || item.product);
+      if (pid && pid !== String(productId)) {
+        frequencyMap[pid] = (frequencyMap[pid] || 0) + 1;
+      }
+    });
+  });
+
+  const sortedCoProductIds = Object.entries(frequencyMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([pid]) => pid);
+
+  let coProducts = [];
+  if (sortedCoProductIds.length > 0) {
+    coProducts = await Product.find({
+      _id: { $in: sortedCoProductIds.slice(0, 3) },
+      isActive: true,
+      stock: { $gt: 0 }
+    }).lean();
+  }
+
+  // Fallback: If not enough co-purchase data in actual orders, get from same category
+  if (coProducts.length < 2) {
+    const currentProduct = await Product.findById(productId).select('category').lean();
+    if (currentProduct) {
+      const existingIds = [String(productId), ...coProducts.map((p) => String(p._id))];
+      const sameCategory = await Product.find({
+        _id: { $nin: existingIds },
+        category: currentProduct.category,
+        isActive: true,
+        stock: { $gt: 0 }
+      })
+        .limit(2 - coProducts.length)
+        .lean();
+      coProducts = [...coProducts, ...sameCategory];
+    }
+  }
+
+  return coProducts;
 };
