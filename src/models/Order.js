@@ -59,13 +59,19 @@ const orderItemSchema = new mongoose.Schema(
 
 const deliveryAddressSchema = new mongoose.Schema(
   {
-    fullName: { type: String, default: '' },
+    contactName: { type: String, default: '' },
     phone: { type: String, default: '' },
-    street: { type: String, default: '' },
+    addressLine1: { type: String, default: '' },
+    addressLine2: { type: String, default: '' },
     city: { type: String, default: '' },
     state: { type: String, default: '' },
-    postalCode: { type: String, default: '' },
-    country: { type: String, default: 'India' }
+    pincode: { type: String, default: '' },
+    country: { type: String, default: 'India' },
+    notes: { type: String, default: '' },
+    // Backward compatibility aliases
+    fullName: { type: String, default: '' },
+    street: { type: String, default: '' },
+    postalCode: { type: String, default: '' }
   },
   { _id: false }
 );
@@ -102,6 +108,22 @@ const orderSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    amountPaid: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    amountDue: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['DUE', 'PARTIALLY_PAID', 'PAID'],
+      default: 'DUE',
+      index: true
+    },
     customerName: {
       type: String,
       required: true,
@@ -114,13 +136,26 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'packed', 'shipped', 'delivered', 'cancelled'],
+      enum: [
+        'pending',
+        'processing',
+        'confirmed',
+        'packed',
+        'shipped',
+        'dispatched',
+        'delivered',
+        'cancelled'
+      ],
       default: 'pending',
       index: true
     },
     shippingAddress: {
       type: String,
       required: true
+    },
+    deliveryAddress: {
+      type: deliveryAddressSchema,
+      default: () => ({})
     },
     deliveryAddressDetails: {
       type: deliveryAddressSchema,

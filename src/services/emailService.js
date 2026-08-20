@@ -411,3 +411,217 @@ export const sendOrderEmailNotification = async ({ recipientEmail, customerName,
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Sends a detailed order notification email to the business administrator.
+ */
+export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
+  const adminEmail = (
+    process.env.ADMIN_NOTIFICATION_EMAIL ||
+    env.admin.email ||
+    process.env.ADMIN_EMAIL ||
+    'aniket.singh9322@gmail.com'
+  ).trim().toLowerCase();
+
+  if (!adminEmail) {
+    console.warn('[EmailService] Admin email not configured. Skipping admin order email.');
+    return { success: false, reason: 'Admin email not configured' };
+  }
+
+  const orderId = String(order._id || '').slice(-6).toUpperCase();
+  const buyerName = buyer?.name || order.customerName || 'Wholesale Buyer';
+  const buyerCompany = buyer?.companyName || 'Not specified';
+  const buyerPhone = order.phoneNumber || buyer?.phone || 'Not specified';
+  const buyerEmail = buyer?.email || 'Not specified';
+
+  const addr = order.deliveryAddress || order.deliveryAddressDetails || {};
+  const addrLine1 = addr.addressLine1 || addr.street || order.shippingAddress || 'Not specified';
+  const addrLine2 = addr.addressLine2 || '';
+  const addrCity = addr.city || '';
+  const addrState = addr.state || '';
+  const addrPincode = addr.pincode || addr.postalCode || '';
+  const addrNotes = addr.notes || order.notes || '';
+
+  const totalAmount = Number(order.totalAmount || 0);
+  const amountPaid = Number(order.amountPaid || 0);
+  const amountDue = Number(order.amountDue !== undefined ? order.amountDue : Math.max(totalAmount - amountPaid, 0));
+  const paymentStatus = order.paymentStatus || (amountPaid >= totalAmount ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE');
+
+  const items = order.items || [];
+  const itemsHtml = items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">
+          <strong>${item.name}</strong>
+          ${item.category ? `<br/><span style="font-size: 11px; color: #64748b;">${item.category}${item.packSize ? ` • ${item.packSize}` : ''}</span>` : ''}
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b; text-align: center;">
+          ${item.quantity} ${item.unit || 'unit'}(s)
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b; text-align: right;">
+          ${formatCurrency(item.unitPrice)}
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0284c7; font-weight: 700; text-align: right;">
+          ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}
+        </td>
+      </tr>`
+    )
+    .join('');
+
+  const itemsText = items
+    .map(
+      (item) =>
+        `- ${item.name} | Qty: ${item.quantity} ${item.unit || 'unit'}(s) | Price: ${formatCurrency(item.unitPrice)} | Subtotal: ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}`
+    )
+    .join('\n');
+
+  const subject = `New Order Received — AP Enterprises — #${orderId}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><title>${subject}</title></head>
+<body style="margin: 0; padding: 20px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <tr>
+      <td style="background-color: #0f172a; padding: 24px 30px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">AP ENTERPRISES</h1>
+        <p style="color: #94a3b8; margin: 4px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Admin Order Notification</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 24px 30px;">
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+          <h2 style="color: #166534; margin: 0 0 4px; font-size: 16px; font-weight: 700;">New Wholesale Order Received</h2>
+          <p style="color: #15803d; margin: 0; font-size: 13px;">Order <strong>#${orderId}</strong> was placed successfully and is ready for fulfillment.</p>
+        </div>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Buyer Details</h3>
+          <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px;">
+            <tr><td width="35%" style="color: #64748b;">Buyer Name:</td><td style="color: #0f172a; font-weight: 600;">${buyerName}</td></tr>
+            <tr><td style="color: #64748b;">Company / Store:</td><td style="color: #0f172a; font-weight: 600;">${buyerCompany}</td></tr>
+            <tr><td style="color: #64748b;">Phone:</td><td style="color: #0f172a; font-weight: 600;">${buyerPhone}</td></tr>
+            <tr><td style="color: #64748b;">Email:</td><td style="color: #0f172a; font-weight: 600;">${buyerEmail}</td></tr>
+          </table>
+        </div>
+
+        <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Ordered Products</h3>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <thead>
+            <tr style="background-color: #f8fafc;">
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: left; border-bottom: 1px solid #e2e8f0;">Product</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: center; border-bottom: 1px solid #e2e8f0;">Qty</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">Price</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Payment Summary</h3>
+          <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px;">
+            <tr><td style="color: #64748b;">Subtotal:</td><td style="text-align: right; color: #0f172a; font-weight: 600;">${formatCurrency(order.subtotal || totalAmount)}</td></tr>
+            <tr><td style="color: #64748b;">Delivery Charges:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${order.deliveryFee ? formatCurrency(order.deliveryFee) : 'FREE'}</td></tr>
+            <tr><td style="color: #64748b;">Amount Paid:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${formatCurrency(amountPaid)}</td></tr>
+            <tr><td style="color: #64748b;">Amount Due:</td><td style="text-align: right; color: #dc2626; font-weight: 600;">${formatCurrency(amountDue)}</td></tr>
+            <tr style="border-top: 1px solid #cbd5e1;"><td style="color: #0f172a; font-weight: 800; font-size: 14px; padding-top: 8px;">Total Order Amount:</td><td style="text-align: right; color: #0284c7; font-weight: 800; font-size: 16px; padding-top: 8px;">${formatCurrency(totalAmount)}</td></tr>
+            <tr><td style="color: #64748b;">Payment Status:</td><td style="text-align: right; font-weight: 700; color: ${paymentStatus === 'PAID' ? '#16a34a' : paymentStatus === 'PARTIALLY_PAID' ? '#d97706' : '#dc2626'};">${paymentStatus}</td></tr>
+          </table>
+        </div>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Delivery Location</h3>
+          <p style="margin: 0 0 4px; font-size: 13px; color: #0f172a; font-weight: 600;">${addr.contactName || buyerName} (${addr.phone || buyerPhone})</p>
+          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${addrLine1}</p>
+          ${addrLine2 ? `<p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${addrLine2}</p>` : ''}
+          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${[addrCity, addrState, addrPincode].filter(Boolean).join(', ')}</p>
+          ${addrNotes ? `<p style="margin: 6px 0 0; font-size: 12px; color: #b45309; background-color: #fef3c7; padding: 6px 10px; border-radius: 6px;">Note: ${addrNotes}</p>` : ''}
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 16px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
+        <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Order Dispatch System</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  const text = `
+New wholesale order received.
+
+Order ID:
+#${orderId}
+
+Buyer:
+${buyerName}
+
+Company/Store:
+${buyerCompany}
+
+Phone:
+${buyerPhone}
+
+Email:
+${buyerEmail}
+
+--------------------------------
+
+Ordered Products:
+
+${itemsText}
+
+--------------------------------
+
+Total:
+${formatCurrency(totalAmount)}
+
+Amount Paid:
+${formatCurrency(amountPaid)}
+
+Amount Due:
+${formatCurrency(amountDue)}
+
+Payment Status:
+${paymentStatus}
+
+--------------------------------
+
+Delivery Address:
+
+${addrLine1}
+${addrLine2 ? addrLine2 + '\n' : ''}${addrCity}, ${addrState} - ${addrPincode}
+
+Delivery Notes:
+${addrNotes || 'None'}
+  `.trim();
+
+  const transport = createMailTransport();
+  if (!transport) {
+    console.log(`[DEV EmailService SIMULATION] Would send Admin Order Notification "${subject}" to ${adminEmail}`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    const info = await transport.sendMail({
+      from: `"AP Enterprises Orders" <${env.smtp.user.trim()}>`,
+      to: adminEmail,
+      subject,
+      text,
+      html
+    });
+    console.log(`[EmailService] Admin new order notification sent to ${adminEmail} (${info.messageId || 'OK'})`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error(`[EmailService] Failed to send admin order notification to ${adminEmail}:`, error.message);
+    return { success: false, error: error.message };
+  }
+};
+

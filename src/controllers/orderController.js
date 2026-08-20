@@ -4,7 +4,7 @@ import { Order } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { User } from '../models/User.js';
 import { sendPushToUsers } from '../services/pushNotificationService.js';
-import { sendOrderEmailNotification } from '../services/emailService.js';
+import { sendOrderEmailNotification, sendAdminNewOrderNotification } from '../services/emailService.js';
 import { success } from '../utils/apiResponse.js';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -68,11 +68,83 @@ export const placeOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { customerName, phoneNumber, shippingAddress, deliveryAddressDetails, notes } = req.body;
-    if (!customerName || !phoneNumber || !shippingAddress) {
+    const {
+      customerName,
+      phoneNumber,
+      shippingAddress,
+      deliveryAddress,
+      deliveryAddressDetails,
+      notes,
+      amountPaid: rawAmountPaid
+    } = req.body;
+
+    const rawAddr = deliveryAddress || deliveryAddressDetails || {};
+    const contactName = String(rawAddr.contactName || customerName || req.user.name || '').trim();
+    const rawPhone = String(rawAddr.phone || phoneNumber || req.user.phone || '').trim();
+    const addressLine1 = String(rawAddr.addressLine1 || rawAddr.street || shippingAddress || '').trim();
+    const addressLine2 = String(rawAddr.addressLine2 || '').trim();
+    const city = String(rawAddr.city || '').trim();
+    const state = String(rawAddr.state || '').trim();
+    const rawPincode = String(rawAddr.pincode || rawAddr.postalCode || '').trim();
+    const country = String(rawAddr.country || 'India').trim();
+    const orderNotes = String(rawAddr.notes || notes || '').trim();
+
+    // Validations
+    if (!contactName) {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, message: 'customerName, phoneNumber and shippingAddress are required' });
+      return res.status(400).json({ success: false, message: 'Contact Name is required' });
     }
+
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Valid 10-digit phone number is required' });
+    }
+
+    if (!addressLine1) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Address Line 1 (House/Shop/Street) is required' });
+    }
+
+    if (!city) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'City is required' });
+    }
+
+    if (!state) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'State is required' });
+    }
+
+    const cleanPincode = rawPincode.replace(/[^0-9]/g, '');
+    if (cleanPincode.length !== 6) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Valid 6-digit PIN code is required' });
+    }
+
+    const formattedShippingAddress = [
+      addressLine1,
+      addressLine2,
+      `${city}, ${state} - ${cleanPincode}`,
+      country !== 'India' ? country : ''
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    const structuredDeliveryAddress = {
+      contactName,
+      phone: cleanPhone,
+      addressLine1,
+      addressLine2,
+      city,
+      state,
+      pincode: cleanPincode,
+      country,
+      notes: orderNotes,
+      fullName: contactName,
+      street: addressLine1,
+      postalCode: cleanPincode
+    };
 
     const cart = await Cart.findOne({ user: req.user._id }).populate('items.product').session(session);
     if (!cart || cart.items.length === 0) {
@@ -86,6 +158,10 @@ export const placeOrder = async (req, res) => {
     const discount = Number(req.body.discount || 0);
     const totalAmount = round2(subtotal + deliveryFee - discount);
 
+    const amountPaid = Math.max(0, round2(Number(rawAmountPaid || 0)));
+    const amountDue = Math.max(0, round2(totalAmount - amountPaid));
+    const paymentStatus = amountPaid >= totalAmount ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE';
+
     const [order] = await Order.create(
       [
         {
@@ -95,19 +171,16 @@ export const placeOrder = async (req, res) => {
           deliveryFee,
           discount,
           totalAmount,
-          customerName: customerName.trim(),
-          phoneNumber: phoneNumber.trim(),
-          shippingAddress: shippingAddress.trim(),
-          deliveryAddressDetails: deliveryAddressDetails || {
-            fullName: customerName.trim(),
-            phone: phoneNumber.trim(),
-            street: shippingAddress.trim(),
-            city: '',
-            state: '',
-            postalCode: '',
-            country: 'India'
-          },
-          notes: notes || ''
+          amountPaid,
+          amountDue,
+          paymentStatus,
+          customerName: contactName,
+          phoneNumber: cleanPhone,
+          shippingAddress: formattedShippingAddress,
+          deliveryAddress: structuredDeliveryAddress,
+          deliveryAddressDetails: structuredDeliveryAddress,
+          status: 'pending',
+          notes: orderNotes
         }
       ],
       { session }
@@ -119,7 +192,7 @@ export const placeOrder = async (req, res) => {
     await session.commitTransaction();
     const sellerIds = [...new Set(orderItems.map((item) => String(item.seller)).filter(Boolean))];
 
-    // Async push notifications
+    // Async push notifications to buyer and sellers
     sendPushToUsers(
       [String(req.user._id), ...sellerIds],
       'Order placed',
@@ -127,15 +200,23 @@ export const placeOrder = async (req, res) => {
       { orderId: String(order._id), status: order.status }
     ).catch((err) => console.error('[Push Error]', err.message));
 
-    // Async transactional order placed email to buyer
-    sendOrderEmailNotification({
-      recipientEmail: req.user.email,
-      customerName: order.customerName || req.user.name,
-      order,
-      status: 'pending'
-    }).catch((err) => console.error('[Order Email Error]', err.message));
+    // Async transactional order confirmation email to buyer
+    if (req.user.email) {
+      sendOrderEmailNotification({
+        recipientEmail: req.user.email,
+        customerName: order.customerName || req.user.name,
+        order,
+        status: 'pending'
+      }).catch((err) => console.error('[Order Email Error]', err.message));
+    }
 
-    return success(res, order, 'Order placed', 201);
+    // Async transactional new order notification email to Admin
+    sendAdminNewOrderNotification({
+      order,
+      buyer: req.user
+    }).catch((err) => console.error('[Admin Order Email Error]', err.message));
+
+    return success(res, order, 'Order placed successfully', 201);
   } catch (error) {
     await session.abortTransaction();
     return res.status(400).json({ success: false, message: error.message || 'Failed to place order' });
@@ -174,7 +255,7 @@ export const updateOrderStatus = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  const { status } = req.body;
+  const { status, amountPaid, paymentStatus } = req.body;
   if (!status) {
     await session.abortTransaction();
     session.endSession();
@@ -183,7 +264,7 @@ export const updateOrderStatus = async (req, res) => {
 
   try {
     const order = await Order.findById(req.params.id)
-      .populate('buyer', 'name email')
+      .populate('buyer', 'name email phone companyName')
       .populate('items.product', 'imageUrl category unit packSize name price')
       .session(session);
     if (!order) {
@@ -191,7 +272,16 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    const allowedStatuses = ['pending', 'packed', 'shipped', 'delivered', 'cancelled'];
+    const allowedStatuses = [
+      'pending',
+      'processing',
+      'confirmed',
+      'packed',
+      'shipped',
+      'dispatched',
+      'delivered',
+      'cancelled'
+    ];
     if (!allowedStatuses.includes(status)) {
       await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'Invalid status' });
@@ -206,7 +296,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const statusChanged = order.status !== status;
-    const shouldDeductStock = status === 'packed' && order.status !== 'packed';
+    const shouldDeductStock = (status === 'packed' || status === 'confirmed') && order.status === 'pending';
 
     if (shouldDeductStock) {
       const products = await Promise.all(
@@ -230,8 +320,20 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     order.status = status;
-    await order.save({ session });
 
+    if (amountPaid !== undefined) {
+      order.amountPaid = Math.max(0, round2(Number(amountPaid)));
+      order.amountDue = Math.max(0, round2(order.totalAmount - order.amountPaid));
+      order.paymentStatus = order.amountPaid >= order.totalAmount ? 'PAID' : order.amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE';
+    } else if (paymentStatus && ['DUE', 'PARTIALLY_PAID', 'PAID'].includes(paymentStatus)) {
+      order.paymentStatus = paymentStatus;
+      if (paymentStatus === 'PAID') {
+        order.amountPaid = order.totalAmount;
+        order.amountDue = 0;
+      }
+    }
+
+    await order.save({ session });
     await session.commitTransaction();
 
     // Trigger push & email notifications if status actually changed
