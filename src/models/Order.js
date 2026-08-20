@@ -10,11 +10,28 @@ const orderItemSchema = new mongoose.Schema(
     seller: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+      required: false
     },
     name: {
       type: String,
-      required: true
+      required: true,
+      trim: true
+    },
+    imageUrl: {
+      type: String,
+      default: ''
+    },
+    category: {
+      type: String,
+      default: 'General'
+    },
+    unit: {
+      type: String,
+      default: 'piece'
+    },
+    packSize: {
+      type: String,
+      default: ''
     },
     quantity: {
       type: Number,
@@ -26,11 +43,29 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    subtotal: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     lineTotal: {
       type: Number,
       required: true,
       min: 0
     }
+  },
+  { _id: false }
+);
+
+const deliveryAddressSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    street: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    postalCode: { type: String, default: '' },
+    country: { type: String, default: 'India' }
   },
   { _id: false }
 );
@@ -46,6 +81,21 @@ const orderSchema = new mongoose.Schema(
     items: {
       type: [orderItemSchema],
       validate: [(arr) => arr.length > 0, 'Order must include at least one item']
+    },
+    subtotal: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    deliveryFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    discount: {
+      type: Number,
+      default: 0,
+      min: 0
     },
     totalAmount: {
       type: Number,
@@ -71,6 +121,10 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       type: String,
       required: true
+    },
+    deliveryAddressDetails: {
+      type: deliveryAddressSchema,
+      default: () => ({})
     },
     notes: {
       type: String,

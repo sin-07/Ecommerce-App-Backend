@@ -7,7 +7,7 @@ import { sendPushToUsers } from '../services/pushNotificationService.js';
 import { sendOrderEmailNotification } from '../services/emailService.js';
 import { success } from '../utils/apiResponse.js';
 
-const round2 = (value) => Math.round(value * 100) / 100;
+const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 const getTieredUnitPrice = (product, quantity) => {
   const moq = Math.max(1, product.minOrderQuantity || 1);
@@ -28,30 +28,37 @@ const mapCartToOrderItems = async (cartItems) => {
   return cartItems.map((item, i) => {
     const product = products[i];
     if (!product || !product.isActive) {
-      throw new Error('Invalid product in cart');
+      throw new Error('Invalid or inactive product in cart');
     }
 
-    if (product.stock < 10) {
-      throw new Error(`${product.name} is out of stock`);
+    if (product.stock < 1) {
+      throw new Error(`${product.name} is currently out of stock`);
     }
 
     if (product.stock < item.quantity) {
-      throw new Error(`Insufficient stock for ${product.name}`);
+      throw new Error(`Insufficient warehouse stock for ${product.name} (only ${product.stock} available)`);
     }
 
-    if (item.quantity < product.minOrderQuantity) {
-      throw new Error(`Minimum order quantity for ${product.name} is ${product.minOrderQuantity}`);
+    const moq = Math.max(1, product.minOrderQuantity || 1);
+    if (item.quantity < moq) {
+      throw new Error(`Minimum order quantity for ${product.name} is ${moq} ${product.unit || 'unit'}(s)`);
     }
 
     const unitPrice = getTieredUnitPrice(product, item.quantity);
+    const lineTotal = round2(unitPrice * item.quantity);
 
     return {
       product: product._id,
       seller: product.seller,
       name: product.name,
+      imageUrl: product.imageUrl || '',
+      category: product.category || 'General',
+      unit: product.unit || 'piece',
+      packSize: product.packSize || '',
       quantity: item.quantity,
       unitPrice,
-      lineTotal: round2(unitPrice * item.quantity)
+      subtotal: lineTotal,
+      lineTotal
     };
   });
 };
@@ -61,7 +68,7 @@ export const placeOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { customerName, phoneNumber, shippingAddress, notes } = req.body;
+    const { customerName, phoneNumber, shippingAddress, deliveryAddressDetails, notes } = req.body;
     if (!customerName || !phoneNumber || !shippingAddress) {
       await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'customerName, phoneNumber and shippingAddress are required' });
@@ -74,17 +81,32 @@ export const placeOrder = async (req, res) => {
     }
 
     const orderItems = await mapCartToOrderItems(cart.items);
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.lineTotal, 0);
+    const subtotal = round2(orderItems.reduce((sum, item) => sum + item.lineTotal, 0));
+    const deliveryFee = Number(req.body.deliveryFee || 0);
+    const discount = Number(req.body.discount || 0);
+    const totalAmount = round2(subtotal + deliveryFee - discount);
 
     const [order] = await Order.create(
       [
         {
           buyer: req.user._id,
           items: orderItems,
+          subtotal,
+          deliveryFee,
+          discount,
           totalAmount,
           customerName: customerName.trim(),
           phoneNumber: phoneNumber.trim(),
           shippingAddress: shippingAddress.trim(),
+          deliveryAddressDetails: deliveryAddressDetails || {
+            fullName: customerName.trim(),
+            phone: phoneNumber.trim(),
+            street: shippingAddress.trim(),
+            city: '',
+            state: '',
+            postalCode: '',
+            country: 'India'
+          },
           notes: notes || ''
         }
       ],
@@ -95,13 +117,13 @@ export const placeOrder = async (req, res) => {
     await cart.save({ session });
 
     await session.commitTransaction();
-    const sellerIds = [...new Set(orderItems.map((item) => String(item.seller)))];
-    
+    const sellerIds = [...new Set(orderItems.map((item) => String(item.seller)).filter(Boolean))];
+
     // Async push notifications
     sendPushToUsers(
       [String(req.user._id), ...sellerIds],
       'Order placed',
-      `Order #${String(order._id).slice(-6)} has been placed successfully.`,
+      `Order #${String(order._id).slice(-6).toUpperCase()} has been placed successfully.`,
       { orderId: String(order._id), status: order.status }
     ).catch((err) => console.error('[Push Error]', err.message));
 
@@ -123,17 +145,28 @@ export const placeOrder = async (req, res) => {
 };
 
 export const getBuyerOrders = async (req, res) => {
-  const orders = await Order.find({ buyer: req.user._id }).sort({ createdAt: -1 });
+  const orders = await Order.find({ buyer: req.user._id })
+    .populate('items.product', 'imageUrl category unit packSize name price')
+    .sort({ createdAt: -1 })
+    .lean();
   return success(res, orders, 'Order history fetched');
 };
 
 export const getSellerOrders = async (req, res) => {
-  const orders = await Order.find({ 'items.seller': req.user._id }).sort({ createdAt: -1 });
+  const orders = await Order.find({ 'items.seller': req.user._id })
+    .populate('buyer', 'name email phone companyName')
+    .populate('items.product', 'imageUrl category unit packSize name price')
+    .sort({ createdAt: -1 })
+    .lean();
   return success(res, orders, 'Seller orders fetched');
 };
 
 export const getAllOrders = async (_req, res) => {
-  const orders = await Order.find({}).populate('buyer', 'name email').sort({ createdAt: -1 });
+  const orders = await Order.find({})
+    .populate('buyer', 'name email phone companyName')
+    .populate('items.product', 'imageUrl category unit packSize name price')
+    .sort({ createdAt: -1 })
+    .lean();
   return success(res, orders, 'All orders fetched');
 };
 
@@ -149,7 +182,10 @@ export const updateOrderStatus = async (req, res) => {
   }
 
   try {
-    const order = await Order.findById(req.params.id).populate('buyer', 'name email').session(session);
+    const order = await Order.findById(req.params.id)
+      .populate('buyer', 'name email')
+      .populate('items.product', 'imageUrl category unit packSize name price')
+      .session(session);
     if (!order) {
       await session.abortTransaction();
       return res.status(404).json({ success: false, message: 'Order not found' });
@@ -184,10 +220,6 @@ export const updateOrderStatus = async (req, res) => {
           throw new Error('Invalid product in order');
         }
 
-        if (product.stock < 10) {
-          throw new Error(`${product.name} is out of stock`);
-        }
-
         if (product.stock < item.quantity) {
           throw new Error(`Insufficient stock for ${product.name}`);
         }
@@ -204,11 +236,11 @@ export const updateOrderStatus = async (req, res) => {
 
     // Trigger push & email notifications if status actually changed
     if (statusChanged) {
-      const statusTitle = `Order ${status}`;
+      const statusTitle = `Order ${status.toUpperCase()}`;
       sendPushToUsers(
         [String(order.buyer?._id || order.buyer)],
         statusTitle,
-        `Order #${String(order._id).slice(-6)} is now ${status}.`,
+        `Order #${String(order._id).slice(-6).toUpperCase()} is now ${status}.`,
         { orderId: String(order._id), status }
       ).catch((err) => console.error('[Push Error]', err.message));
 
