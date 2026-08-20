@@ -2,6 +2,7 @@ import { paginated, success } from '../utils/apiResponse.js';
 import {
   createProduct as createProductService,
   deleteProduct as deleteProductService,
+  getCategories as getCategoriesService,
   getProductById as getProductByIdService,
   getProducts as getProductsService,
   getSellerProducts as getSellerProductsService,
@@ -23,6 +24,11 @@ export const getProducts = async (req, res) => {
     pagination,
     'Products fetched'
   );
+};
+
+export const getCategories = async (req, res) => {
+  const categories = await getCategoriesService();
+  return success(res, categories, 'Categories fetched');
 };
 
 export const getProductById = async (req, res) => {

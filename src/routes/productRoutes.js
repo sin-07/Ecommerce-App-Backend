@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createProduct,
   deleteProduct,
+  getCategories,
   getProductById,
   getProducts,
   getSellerProducts,
@@ -15,6 +16,7 @@ import { validateCreateProduct, validateUpdateProduct } from '../validators/prod
 const router = Router();
 
 router.get('/', getProducts);
+router.get('/categories', getCategories);
 router.get('/seller/me', protect, restrictTo('seller'), getSellerProducts);
 router.get('/:id', getProductById);
 router.post('/', protect, restrictTo('seller', 'admin'), upload.single('image'), validate(validateCreateProduct), createProduct);

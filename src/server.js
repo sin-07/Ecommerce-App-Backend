@@ -2,6 +2,7 @@ import app from './app.js';
 import { connectDb } from './config/db.js';
 import { env, checkConfigStatus } from './config/env.js';
 import { seedDefaultUsers } from './utils/seedDefaultUsers.js';
+import { seedDefaultProducts } from './utils/seedDefaultProducts.js';
 import './config/cloudinary.js';
 
 export default app;
@@ -21,6 +22,9 @@ if (!isServerless && process.env.NODE_ENV !== 'test') {
         await connectDb();
         await seedDefaultUsers().catch((err) => {
           console.warn('[Seed Warning]', err.message);
+        });
+        await seedDefaultProducts().catch((err) => {
+          console.warn('[Product Seed Warning]', err.message);
         });
       } else {
         console.warn('[Startup] MONGO_URI is not configured yet. Server is running in configuration-standby mode.');

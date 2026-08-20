@@ -62,6 +62,30 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true
+    },
+    isBestSeller: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    unit: {
+      type: String,
+      trim: true,
+      default: 'piece'
+    },
+    packSize: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    badge: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    tags: {
+      type: [String],
+      default: []
     }
   },
   { timestamps: true }

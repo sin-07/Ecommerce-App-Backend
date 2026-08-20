@@ -21,7 +21,24 @@ export const validateCreateProduct = (req) => {
 
 export const validateUpdateProduct = (req) => {
   const errors = [];
-  const allowedFields = ['name', 'description', 'category', 'price', 'discount', 'stock', 'minOrderQuantity', 'sku', 'isActive', 'isFeatured'];
+  const allowedFields = [
+    'name',
+    'description',
+    'category',
+    'price',
+    'discount',
+    'stock',
+    'minOrderQuantity',
+    'sku',
+    'isActive',
+    'isFeatured',
+    'isBestSeller',
+    'unit',
+    'packSize',
+    'badge',
+    'tags',
+    'imageUrl'
+  ];
   const hasUpdatableField = allowedFields.some((field) => Object.prototype.hasOwnProperty.call(req.body, field));
 
   if (!hasUpdatableField && !req.file) {
