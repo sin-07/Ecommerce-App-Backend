@@ -25,21 +25,35 @@ const parseTags = (tags) => {
 export const uploadImage = async (file) => {
   if (!file) return '';
 
-  if (env.useCloudinary) {
-    const result = await cloudinary.uploader.upload(file.path, { folder: 'b2b-products' });
+  const hasCloudinaryKeys = Boolean(
+    env.cloudinary.cloudName && env.cloudinary.apiKey && env.cloudinary.apiSecret
+  );
+
+  if (env.useCloudinary || hasCloudinaryKeys) {
     try {
-      fs.unlinkSync(file.path);
-    } catch {
-      // safe cleanup
+      const result = await cloudinary.uploader.upload(file.path, { folder: 'b2b-products' });
+      try {
+        fs.unlinkSync(file.path);
+      } catch {
+        // safe cleanup
+      }
+      return result.secure_url;
+    } catch (uploadError) {
+      console.error('[Cloudinary Upload Error]:', uploadError.message);
+      return `/uploads/${path.basename(file.path)}`;
     }
-    return result.secure_url;
   }
 
   return `/uploads/${path.basename(file.path)}`;
 };
 
 export const createProduct = async ({ sellerId, file, payload }) => {
-  const imageUrl = await uploadImage(file);
+  let imageUrl = '';
+  if (file) {
+    imageUrl = await uploadImage(file);
+  } else if (payload.imageUrl && typeof payload.imageUrl === 'string' && payload.imageUrl.trim()) {
+    imageUrl = payload.imageUrl.trim();
+  }
 
   return Product.create({
     name: String(payload.name || '').trim(),

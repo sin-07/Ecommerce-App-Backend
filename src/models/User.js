@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
     companyName: {
       type: String,
       trim: true,
-      default: 'AP Enterprises'
+      default: ''
     },
     phone: {
       type: String,

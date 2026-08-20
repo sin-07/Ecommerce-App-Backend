@@ -34,23 +34,16 @@ export const env = {
     .split(',')
     .map((server) => server.trim())
     .filter(Boolean),
-  useCloudinary: String(process.env.USE_CLOUDINARY || 'false') === 'true',
+  useCloudinary: String(process.env.USE_CLOUDINARY || 'true') === 'true',
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
     apiKey: process.env.CLOUDINARY_API_KEY || '',
     apiSecret: process.env.CLOUDINARY_API_SECRET || ''
   },
-  defaultSeller: {
-    enabled: String(process.env.DEFAULT_SELLER_ENABLED || 'true') === 'true',
-    name: process.env.DEFAULT_SELLER_NAME || 'AP Enterprises Wholesale',
-    email: process.env.DEFAULT_SELLER_EMAIL || 'seller@apenterprises.com',
-    password: process.env.DEFAULT_SELLER_PASSWORD || '',
-    companyName: process.env.DEFAULT_SELLER_COMPANY || 'AP Enterprises'
-  },
   admin: {
     enabled: String(process.env.ADMIN_SEED_ENABLED || 'true') === 'true',
-    name: process.env.ADMIN_NAME || 'Aniket Singh',
-    email: String(process.env.ADMIN_EMAIL || 'aniket.singh9322@gmail.com').trim().toLowerCase(),
+    name: process.env.ADMIN_NAME || 'AP Enterprises Admin',
+    email: String(process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
     password: process.env.ADMIN_PASSWORD || '',
     companyName: process.env.ADMIN_COMPANY || 'AP Enterprises'
   }
@@ -58,7 +51,6 @@ export const env = {
 
 /**
  * Validates whether critical runtime configuration is present.
- * Logs a polite warning instead of crashing unceremoniously.
  */
 export const checkConfigStatus = () => {
   const issues = [];
