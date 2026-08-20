@@ -216,14 +216,14 @@ export const deleteProduct = async ({ id, sellerId, role }) => {
   if (!product) return null;
 
   if (String(product.seller) !== String(sellerId) && role !== 'admin') {
-    const error = new Error('Forbidden');
+    const error = new Error('Forbidden: You do not have permission to delete this product.');
     error.statusCode = 403;
     throw error;
   }
 
-  product.isActive = false;
-  await product.save();
-  return product;
+  // Perform permanent real deletion from the database
+  const deleted = await Product.findByIdAndDelete(id);
+  return deleted;
 };
 
 export const getSellerProducts = async (sellerId) => {
