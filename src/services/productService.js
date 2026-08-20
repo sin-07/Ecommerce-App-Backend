@@ -30,21 +30,32 @@ export const uploadImage = async (file) => {
   );
 
   if (env.useCloudinary || hasCloudinaryKeys) {
+    cloudinary.config({
+      cloud_name: env.cloudinary.cloudName,
+      api_key: env.cloudinary.apiKey,
+      api_secret: env.cloudinary.apiSecret
+    });
+
     try {
-      const result = await cloudinary.uploader.upload(file.path, { folder: 'b2b-products' });
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'b2b-products',
+        resource_type: 'image'
+      });
       try {
-        fs.unlinkSync(file.path);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
       } catch {
         // safe cleanup
       }
       return result.secure_url;
     } catch (uploadError) {
       console.error('[Cloudinary Upload Error]:', uploadError.message);
-      return `/uploads/${path.basename(file.path)}`;
+      throw new Error(`Cloudinary upload failed: ${uploadError.message}`);
     }
   }
 
-  return `/uploads/${path.basename(file.path)}`;
+  throw new Error('Cloudinary is not configured. Please configure Cloudinary environment variables.');
 };
 
 export const createProduct = async ({ sellerId, file, payload }) => {
