@@ -25,6 +25,7 @@ app.use(compression());
 
 // CORS Configuration for Mobile and Web Clients
 const ALLOWED_ORIGINS = [
+  'https://ecommerce-app-frontend-six-olive.vercel.app',
   'https://ecommerce-app-backend-blush.vercel.app',
   'http://localhost:3000',
   'http://localhost:5000',
