@@ -265,6 +265,34 @@ export const placeOrder = async (req, res) => {
   }
 };
 
+export const computeOrderTotals = (order) => {
+  if (!order || !order.items) return order;
+  const activeItems = (order.items || []).filter((it) => it.status !== 'cancelled');
+  const activeSubtotal = activeItems.reduce(
+    (sum, it) => sum + (it.lineTotal !== undefined ? Number(it.lineTotal) : Number(it.quantity * it.unitPrice) || 0),
+    0
+  );
+  const deliveryFee = Number(order.deliveryFee) || 0;
+  const discount = Number(order.discount) || 0;
+  const newTotal = Math.max(0, activeSubtotal + deliveryFee - discount);
+  const amountPaid = Number(order.amountPaid) || 0;
+  const newAmountDue = Math.max(0, newTotal - amountPaid);
+
+  order.subtotal = activeSubtotal;
+  order.totalAmount = newTotal;
+  order.amountDue = newAmountDue;
+  if (newTotal === 0) {
+    order.paymentStatus = 'PAID';
+  } else if (amountPaid >= newTotal) {
+    order.paymentStatus = 'PAID';
+  } else if (amountPaid > 0) {
+    order.paymentStatus = 'PARTIALLY_PAID';
+  } else {
+    order.paymentStatus = 'DUE';
+  }
+  return order;
+};
+
 export const getBuyerOrders = async (req, res) => {
   const page = req.query.page ? Math.max(1, Number(req.query.page)) : null;
   const limit = req.query.limit ? Math.min(50, Math.max(1, Number(req.query.limit))) : (page ? 20 : null);
@@ -277,7 +305,7 @@ export const getBuyerOrders = async (req, res) => {
 
   if (page) {
     const skip = (page - 1) * limit;
-    const [orders, total] = await Promise.all([
+    const [rawOrders, total] = await Promise.all([
       Order.find(query)
         .populate('items.product', 'imageUrl category unit packSize name price')
         .sort({ createdAt: -1 })
@@ -286,14 +314,16 @@ export const getBuyerOrders = async (req, res) => {
         .lean(),
       Order.countDocuments(query)
     ]);
+    const orders = rawOrders.map(computeOrderTotals);
     return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Order history fetched');
   }
 
-  const orders = await Order.find(query)
+  const rawOrders = await Order.find(query)
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
+  const orders = rawOrders.map(computeOrderTotals);
 
   return success(res, orders, 'Order history fetched');
 };
@@ -306,7 +336,7 @@ export const getSellerOrders = async (req, res) => {
 
   if (page) {
     const skip = (page - 1) * limit;
-    const [orders, total] = await Promise.all([
+    const [rawOrders, total] = await Promise.all([
       Order.find(query)
         .populate('buyer', 'name email phone companyName')
         .populate('items.product', 'imageUrl category unit packSize name price')
@@ -316,15 +346,17 @@ export const getSellerOrders = async (req, res) => {
         .lean(),
       Order.countDocuments(query)
     ]);
+    const orders = rawOrders.map(computeOrderTotals);
     return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'Seller orders fetched');
   }
 
-  const orders = await Order.find(query)
+  const rawOrders = await Order.find(query)
     .populate('buyer', 'name email phone companyName')
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
+  const orders = rawOrders.map(computeOrderTotals);
 
   return success(res, orders, 'Seller orders fetched');
 };
@@ -341,7 +373,7 @@ export const getAllOrders = async (req, res) => {
 
   if (page) {
     const skip = (page - 1) * limit;
-    const [orders, total] = await Promise.all([
+    const [rawOrders, total] = await Promise.all([
       Order.find(query)
         .populate('buyer', 'name email phone companyName')
         .populate('items.product', 'imageUrl category unit packSize name price')
@@ -351,15 +383,17 @@ export const getAllOrders = async (req, res) => {
         .lean(),
       Order.countDocuments(query)
     ]);
+    const orders = rawOrders.map(computeOrderTotals);
     return paginated(res, orders, { total, page, limit, totalPages: Math.ceil(total / limit) }, 'All orders fetched');
   }
 
-  const orders = await Order.find(query)
+  const rawOrders = await Order.find(query)
     .populate('buyer', 'name email phone companyName')
     .populate('items.product', 'imageUrl category unit packSize name price')
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
+  const orders = rawOrders.map(computeOrderTotals);
 
   return success(res, orders, 'All orders fetched');
 };
