@@ -33,11 +33,18 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true
+    },
+    readAt: {
+      type: Date,
+      default: null,
+      index: true
     }
   },
   { timestamps: true }
 );
 
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+// 12-hour TTL auto-cleanup after a notification is marked read (43,200 seconds)
+notificationSchema.index({ readAt: 1 }, { expireAfterSeconds: 12 * 60 * 60 });
 
 export const Notification = mongoose.model('Notification', notificationSchema);

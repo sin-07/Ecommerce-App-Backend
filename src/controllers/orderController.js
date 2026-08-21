@@ -497,6 +497,22 @@ export const updateOrderStatus = async (req, res) => {
 
     // Process Payment Updates
     const normPaymentStatus = String(paymentStatus || '').toUpperCase();
+    const isPaymentUpdate = amountPaid !== undefined || ['DUE', 'PARTIALLY_PAID', 'PAID'].includes(normPaymentStatus);
+
+    if (isPaymentUpdate) {
+      if (order.status === 'delivered' || order.deliveredAt) {
+        const deliveredTime = order.deliveredAt ? new Date(order.deliveredAt).getTime() : 0;
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+        if (deliveredTime > 0 && (Date.now() - deliveredTime > TWELVE_HOURS_MS)) {
+          await session.abortTransaction();
+          return res.status(400).json({
+            success: false,
+            message: 'Payment window expired. Payment can only be marked within 12 hours after delivery.'
+          });
+        }
+      }
+    }
+
     if (normPaymentStatus === 'PAID' || (amountPaid !== undefined && Number(amountPaid) >= currentTotal)) {
       order.amountPaid = currentTotal;
       order.amountDue = 0;
