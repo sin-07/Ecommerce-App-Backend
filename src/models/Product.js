@@ -58,6 +58,12 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    availabilityStatus: {
+      type: String,
+      enum: ['active', 'out_of_stock', 'unavailable'],
+      default: 'active',
+      index: true
+    },
     isFeatured: {
       type: Boolean,
       default: false,

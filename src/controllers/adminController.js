@@ -172,11 +172,18 @@ export const getAdminProducts = async (req, res) => {
     ];
   }
 
-  if (status === 'active') query.isActive = true;
-  if (status === 'inactive') query.isActive = false;
-  if (status === 'featured') query.isFeatured = true;
-  if (status === 'low-stock') query.stock = { $gt: 0, $lt: 10 };
-  if (status === 'out-of-stock') query.stock = 0;
+  if (status === 'active') {
+    query.isActive = true;
+    query.availabilityStatus = { $ne: 'unavailable' };
+  } else if (status === 'inactive' || status === 'unavailable') {
+    query.$or = [{ isActive: false }, { availabilityStatus: 'unavailable' }];
+  } else if (status === 'out-of-stock') {
+    query.$or = [{ stock: 0 }, { availabilityStatus: 'out_of_stock' }];
+  } else if (status === 'featured') {
+    query.isFeatured = true;
+  } else if (status === 'low-stock') {
+    query.stock = { $gt: 0, $lt: 10 };
+  }
 
   const sort = sortKey === 'price-low' ? { price: 1 } : sortKey === 'price-high' ? { price: -1 } : sortKey === 'stock-low' ? { stock: 1 } : { createdAt: -1 };
   const [products, total] = await Promise.all([
@@ -188,15 +195,38 @@ export const getAdminProducts = async (req, res) => {
 };
 
 export const updateProductStatus = async (req, res) => {
-  const { isActive } = req.body;
+  const { isActive, availabilityStatus } = req.body;
   const product = await Product.findById(req.params.id);
 
   if (!product) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
 
-  product.isActive = Boolean(isActive);
+  if (availabilityStatus) {
+    const validStatuses = ['active', 'out_of_stock', 'unavailable'];
+    if (!validStatuses.includes(availabilityStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid availability status' });
+    }
+    product.availabilityStatus = availabilityStatus;
+    if (availabilityStatus === 'active') {
+      product.isActive = true;
+    } else if (availabilityStatus === 'unavailable') {
+      product.isActive = false;
+    } else if (availabilityStatus === 'out_of_stock') {
+      product.isActive = true;
+    }
+  } else if (isActive !== undefined) {
+    product.isActive = Boolean(isActive);
+    product.availabilityStatus = product.isActive ? 'active' : 'unavailable';
+  }
+
   await product.save();
 
-  return success(res, product, `Product marked as ${product.isActive ? 'active' : 'inactive'}`);
+  const label = product.availabilityStatus === 'out_of_stock'
+    ? 'Out of Stock'
+    : product.availabilityStatus === 'unavailable' || !product.isActive
+    ? 'Unavailable'
+    : 'Available';
+
+  return success(res, product, `Product marked as ${label}`);
 };

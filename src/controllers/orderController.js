@@ -43,12 +43,12 @@ const mapCartToOrderItems = async (cartItems, session = null) => {
   return cartItems.map((item) => {
     const pid = String(item.product._id || item.product);
     const product = productMap.get(pid);
-    if (!product || !product.isActive) {
-      throw new Error('Invalid or inactive product in cart');
+    if (!product || !product.isActive || product.availabilityStatus === 'unavailable') {
+      throw new Error(`Product "${product ? product.name : 'item'}" is currently unavailable for order`);
     }
 
-    if (product.stock < 1) {
-      throw new Error(`${product.name} is currently out of stock`);
+    if (product.availabilityStatus === 'out_of_stock' || product.stock < 1) {
+      throw new Error(`Product "${product.name}" is currently out of stock`);
     }
 
     if (product.stock < item.quantity) {
@@ -385,6 +385,21 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
+    if (order.status === 'cancelled') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Cancelled orders cannot be packed, shipped, or delivered.' });
+    }
+
+    if (order.status === 'delivered') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Delivered orders cannot be modified.' });
+    }
+
+    if (status === 'cancelled') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Please use the Cancel Order feature with a cancellation reason note.' });
+    }
+
     const allowedStatuses = [
       'pending',
       'processing',
@@ -392,8 +407,7 @@ export const updateOrderStatus = async (req, res) => {
       'packed',
       'shipped',
       'dispatched',
-      'delivered',
-      'cancelled'
+      'delivered'
     ];
     if (!allowedStatuses.includes(status)) {
       await session.abortTransaction();
@@ -412,12 +426,13 @@ export const updateOrderStatus = async (req, res) => {
     const shouldDeductStock = (status === 'packed' || status === 'confirmed') && order.status === 'pending';
 
     if (shouldDeductStock) {
-      const productIds = order.items.map((item) => item.product._id || item.product);
+      const activeItems = order.items.filter((item) => item.status !== 'cancelled');
+      const productIds = activeItems.map((item) => item.product._id || item.product);
       const products = await Product.find({ _id: { $in: productIds } }).session(session);
       const productMap = new Map(products.map((p) => [String(p._id), p]));
 
-      for (let i = 0; i < order.items.length; i++) {
-        const item = order.items[i];
+      for (let i = 0; i < activeItems.length; i++) {
+        const item = activeItems[i];
         const pid = String(item.product._id || item.product);
         const product = productMap.get(pid);
         if (!product || !product.isActive) {
@@ -434,6 +449,12 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     order.status = status;
+    if (status === 'delivered' && !order.deliveredAt) {
+      order.deliveredAt = new Date();
+    }
+    if ((status === 'shipped' || status === 'dispatched') && !order.dispatchedAt) {
+      order.dispatchedAt = new Date();
+    }
 
     if (amountPaid !== undefined) {
       order.amountPaid = Math.max(0, round2(Number(amountPaid)));
@@ -572,4 +593,208 @@ export const getCustomerStats = async (req, res) => {
     },
     'Customer stats fetched'
   );
+};
+
+export const cancelOrder = async (req, res) => {
+  const { reason } = req.body;
+  const cleanReason = String(reason || '').trim();
+
+  if (!cleanReason) {
+    return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('buyer', 'name email phone companyName')
+      .populate('items.product', 'name stock isActive')
+      .session(session);
+
+    if (!order) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.status === 'cancelled') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    }
+
+    if (order.status === 'delivered') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Delivered orders cannot be cancelled' });
+    }
+
+    const hadDeductedStock = ['confirmed', 'packed', 'shipped', 'dispatched'].includes(order.status);
+
+    if (hadDeductedStock) {
+      for (const item of order.items) {
+        if (item.status !== 'cancelled' && item.product) {
+          await Product.findByIdAndUpdate(
+            item.product._id || item.product,
+            { $inc: { stock: item.quantity } },
+            { session }
+          );
+        }
+      }
+    }
+
+    const cancelDate = new Date();
+    order.status = 'cancelled';
+    order.cancellationReason = cleanReason;
+    order.cancelledBy = req.user._id;
+    order.cancelledAt = cancelDate;
+
+    for (const item of order.items) {
+      item.status = 'cancelled';
+      if (!item.cancellationReason) {
+        item.cancellationReason = cleanReason;
+      }
+      item.cancelledBy = item.cancelledBy || req.user._id;
+      item.cancelledAt = item.cancelledAt || cancelDate;
+    }
+
+    await order.save({ session });
+    await session.commitTransaction();
+
+    const shortId = String(order._id).slice(-6).toUpperCase();
+    const buyerId = String(order.buyer?._id || order.buyer);
+
+    // Create In-App Notification for customer
+    createInAppNotification({
+      recipient: buyerId,
+      title: 'Order Cancelled',
+      message: `Your order #${shortId} has been cancelled by the admin. Reason: ${cleanReason}`,
+      type: 'order',
+      metadata: { orderId: String(order._id), status: 'cancelled', reason: cleanReason }
+    }).catch((err) => console.error('[InApp Notification Error]', err.message));
+
+    // Send Push Notification
+    sendPushToUsers(
+      [buyerId],
+      'Order Cancelled',
+      `Your order #${shortId} has been cancelled. Reason: ${cleanReason}`,
+      { orderId: String(order._id), status: 'cancelled' }
+    ).catch((err) => console.error('[Push Error]', err.message));
+
+    return success(res, order, 'Order cancelled successfully');
+  } catch (error) {
+    await session.abortTransaction();
+    return res.status(400).json({ success: false, message: error.message || 'Failed to cancel order' });
+  } finally {
+    session.endSession();
+  }
+};
+
+export const cancelOrderItem = async (req, res) => {
+  const { reason, itemIndex, itemId, productId } = req.body;
+  const cleanReason = String(reason || '').trim();
+
+  if (!cleanReason) {
+    return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('buyer', 'name email phone companyName')
+      .populate('items.product', 'name stock isActive')
+      .session(session);
+
+    if (!order) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.status === 'cancelled') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    }
+
+    if (order.status === 'delivered') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'Delivered orders cannot have items cancelled' });
+    }
+
+    let targetIndex = -1;
+
+    if (itemId) {
+      targetIndex = order.items.findIndex((it) => String(it._id) === String(itemId));
+    } else if (itemIndex !== undefined && Number(itemIndex) >= 0 && Number(itemIndex) < order.items.length) {
+      targetIndex = Number(itemIndex);
+    } else if (productId) {
+      targetIndex = order.items.findIndex((it) => String(it.product?._id || it.product) === String(productId));
+    }
+
+    if (targetIndex < 0 || !order.items[targetIndex]) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Order item not found' });
+    }
+
+    const targetItem = order.items[targetIndex];
+
+    if (targetItem.status === 'cancelled') {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'This item is already cancelled' });
+    }
+
+    const hadDeductedStock = ['confirmed', 'packed', 'shipped', 'dispatched'].includes(order.status);
+    if (hadDeductedStock && targetItem.product) {
+      await Product.findByIdAndUpdate(
+        targetItem.product._id || targetItem.product,
+        { $inc: { stock: targetItem.quantity } },
+        { session }
+      );
+    }
+
+    const cancelDate = new Date();
+    targetItem.status = 'cancelled';
+    targetItem.cancellationReason = cleanReason;
+    targetItem.cancelledBy = req.user._id;
+    targetItem.cancelledAt = cancelDate;
+
+    // Check if all items are now cancelled
+    const allCancelled = order.items.every((it) => it.status === 'cancelled');
+    if (allCancelled) {
+      order.status = 'cancelled';
+      order.cancellationReason = 'All items in order were cancelled.';
+      order.cancelledBy = req.user._id;
+      order.cancelledAt = cancelDate;
+    }
+
+    await order.save({ session });
+    await session.commitTransaction();
+
+    const shortId = String(order._id).slice(-6).toUpperCase();
+    const buyerId = String(order.buyer?._id || order.buyer);
+    const itemName = targetItem.name || 'Product';
+
+    // Create in-app notification
+    createInAppNotification({
+      recipient: buyerId,
+      title: 'Product Cancelled From Order',
+      message: `Product "${itemName}" from order #${shortId} was cancelled. Reason: ${cleanReason}`,
+      type: 'order',
+      metadata: { orderId: String(order._id), itemId: String(targetItem._id || ''), reason: cleanReason }
+    }).catch((err) => console.error('[InApp Notification Error]', err.message));
+
+    // Send push notification
+    sendPushToUsers(
+      [buyerId],
+      'Product Cancelled From Order',
+      `Product "${itemName}" from order #${shortId} was cancelled. Reason: ${cleanReason}`,
+      { orderId: String(order._id), status: order.status }
+    ).catch((err) => console.error('[Push Error]', err.message));
+
+    return success(res, order, `Item "${itemName}" cancelled successfully`);
+  } catch (error) {
+    await session.abortTransaction();
+    return res.status(400).json({ success: false, message: error.message || 'Failed to cancel order item' });
+  } finally {
+    session.endSession();
+  }
 };

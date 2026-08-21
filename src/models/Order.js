@@ -52,9 +52,27 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0
+    },
+    status: {
+      type: String,
+      enum: ['active', 'cancelled'],
+      default: 'active'
+    },
+    cancellationReason: {
+      type: String,
+      default: ''
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    cancelledAt: {
+      type: Date,
+      default: null
     }
   },
-  { _id: false }
+  { _id: true }
 );
 
 const deliveryAddressSchema = new mongoose.Schema(
@@ -185,6 +203,19 @@ const orderSchema = new mongoose.Schema(
       type: String,
       sparse: true,
       index: true
+    },
+    cancellationReason: {
+      type: String,
+      default: ''
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    cancelledAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

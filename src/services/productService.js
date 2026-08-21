@@ -82,6 +82,7 @@ export const createProduct = async ({ sellerId, file, payload }) => {
     isFeatured: toBoolean(payload.isFeatured, false),
     isBestSeller: toBoolean(payload.isBestSeller, false),
     isActive: toBoolean(payload.isActive, true),
+    availabilityStatus: payload.availabilityStatus || (toBoolean(payload.isActive, true) ? 'active' : 'unavailable'),
     imageUrl,
     seller: sellerId
   });
@@ -147,7 +148,7 @@ export const getProducts = async ({
 
   const [items, total] = await Promise.all([
     Product.find(query)
-      .select('_id name price discount stock minOrderQuantity sku unit packSize badge imageUrl isFeatured isBestSeller isActive category seller pricingTiers createdAt')
+      .select('_id name price discount stock minOrderQuantity sku unit packSize badge imageUrl isFeatured isBestSeller isActive availabilityStatus category seller pricingTiers createdAt')
       .populate('seller', 'name companyName')
       .sort(sortCriteria)
       .skip(skip)
@@ -195,7 +196,7 @@ export const updateProduct = async ({ id, sellerId, role, payload, file }) => {
   }
 
   const update = {};
-  const textFields = ['name', 'description', 'category', 'sku', 'unit', 'packSize', 'badge'];
+  const textFields = ['name', 'description', 'category', 'sku', 'unit', 'packSize', 'badge', 'availabilityStatus'];
   textFields.forEach((field) => {
     if (payload[field] != null) update[field] = String(payload[field]).trim();
   });
@@ -213,6 +214,15 @@ export const updateProduct = async ({ id, sellerId, role, payload, file }) => {
       update[field] = toBoolean(payload[field], product[field]);
     }
   });
+
+  if (payload.availabilityStatus) {
+    update.availabilityStatus = payload.availabilityStatus;
+    if (payload.availabilityStatus === 'unavailable') {
+      update.isActive = false;
+    } else {
+      update.isActive = true;
+    }
+  }
 
   if (file) {
     update.imageUrl = await uploadImage(file);

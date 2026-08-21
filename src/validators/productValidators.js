@@ -37,7 +37,8 @@ export const validateUpdateProduct = (req) => {
     'packSize',
     'badge',
     'tags',
-    'imageUrl'
+    'imageUrl',
+    'availabilityStatus'
   ];
   const hasUpdatableField = allowedFields.some((field) => Object.prototype.hasOwnProperty.call(req.body, field));
 

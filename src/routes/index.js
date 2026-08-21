@@ -6,10 +6,12 @@ import chatRoutes from './chatRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import orderRoutes from './orderRoutes.js';
 import productRoutes from './productRoutes.js';
+import userRoutes from './userRoutes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
 router.use('/products', productRoutes);
 router.use('/cart', cartRoutes);
 router.use('/orders', orderRoutes);

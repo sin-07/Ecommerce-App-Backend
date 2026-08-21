@@ -30,12 +30,12 @@ export const addToCart = async (req, res) => {
   }
 
   const product = await Product.findById(productId);
-  if (!product || !product.isActive) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
+  if (!product || !product.isActive || product.availabilityStatus === 'unavailable') {
+    return res.status(400).json({ success: false, message: 'Product is currently unavailable' });
   }
 
-  if (product.stock < 1) {
-    return res.status(400).json({ success: false, message: 'Product is out of stock' });
+  if (product.availabilityStatus === 'out_of_stock' || product.stock < 1) {
+    return res.status(400).json({ success: false, message: 'Product is currently out of stock' });
   }
 
   if (Number(quantity) < product.minOrderQuantity) {
@@ -81,12 +81,12 @@ export const updateCartItem = async (req, res) => {
   }
 
   const product = await Product.findById(productId);
-  if (!product || !product.isActive) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
+  if (!product || !product.isActive || product.availabilityStatus === 'unavailable') {
+    return res.status(400).json({ success: false, message: 'Product is currently unavailable' });
   }
 
-  if (product.stock < 1) {
-    return res.status(400).json({ success: false, message: 'Product is out of stock' });
+  if (product.availabilityStatus === 'out_of_stock' || product.stock < 1) {
+    return res.status(400).json({ success: false, message: 'Product is currently out of stock' });
   }
 
   if (Number(quantity) > product.stock) {

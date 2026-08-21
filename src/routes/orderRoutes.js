@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import {
+  cancelOrder,
+  cancelOrderItem,
   getAllOrders,
   getBuyAgainProducts,
   getBuyerOrders,
@@ -19,5 +21,7 @@ router.get('/buyer/stats', protect, restrictTo('buyer'), getCustomerStats);
 router.get('/seller', protect, restrictTo('seller'), getSellerOrders);
 router.get('/admin', protect, restrictTo('admin'), getAllOrders);
 router.patch('/:id/status', protect, restrictTo('seller', 'admin'), updateOrderStatus);
+router.patch('/:id/cancel', protect, restrictTo('admin'), cancelOrder);
+router.patch('/:id/cancel-item', protect, restrictTo('admin'), cancelOrderItem);
 
 export default router;
