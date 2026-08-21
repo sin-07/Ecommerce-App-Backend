@@ -403,11 +403,6 @@ export const updateOrderStatus = async (req, res) => {
   session.startTransaction();
 
   const { status, amountPaid, paymentStatus } = req.body;
-  if (!status) {
-    await session.abortTransaction();
-    session.endSession();
-    return res.status(400).json({ success: false, message: 'status is required' });
-  }
 
   try {
     const order = await Order.findById(req.params.id)
@@ -421,31 +416,12 @@ export const updateOrderStatus = async (req, res) => {
 
     if (order.status === 'cancelled') {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, message: 'Cancelled orders cannot be packed, shipped, or delivered.' });
-    }
-
-    if (order.status === 'delivered') {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: 'Delivered orders cannot be modified.' });
+      return res.status(400).json({ success: false, message: 'Cancelled orders cannot be modified.' });
     }
 
     if (status === 'cancelled') {
       await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'Please use the Cancel Order feature with a cancellation reason note.' });
-    }
-
-    const allowedStatuses = [
-      'pending',
-      'processing',
-      'confirmed',
-      'packed',
-      'shipped',
-      'dispatched',
-      'delivered'
-    ];
-    if (!allowedStatuses.includes(status)) {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
     if (req.user.role === 'seller') {
@@ -456,48 +432,83 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    const statusChanged = order.status !== status;
-    const shouldDeductStock = (status === 'packed' || status === 'confirmed') && order.status === 'pending';
+    let statusChanged = false;
+    const targetStatus = status || order.status;
 
-    if (shouldDeductStock) {
-      const activeItems = order.items.filter((item) => item.status !== 'cancelled');
-      const productIds = activeItems.map((item) => item.product._id || item.product);
-      const products = await Product.find({ _id: { $in: productIds } }).session(session);
-      const productMap = new Map(products.map((p) => [String(p._id), p]));
+    if (targetStatus && targetStatus !== order.status) {
+      if (order.status === 'delivered') {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: 'Delivered orders cannot be moved back to a previous stage.' });
+      }
 
-      for (let i = 0; i < activeItems.length; i++) {
-        const item = activeItems[i];
-        const pid = String(item.product._id || item.product);
-        const product = productMap.get(pid);
-        if (!product || !product.isActive) {
-          throw new Error('Invalid product in order');
+      const allowedStatuses = [
+        'pending',
+        'processing',
+        'confirmed',
+        'packed',
+        'shipped',
+        'dispatched',
+        'delivered'
+      ];
+      if (!allowedStatuses.includes(targetStatus)) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: `Invalid status: ${targetStatus}` });
+      }
+
+      const shouldDeductStock = (targetStatus === 'packed' || targetStatus === 'confirmed') && order.status === 'pending';
+
+      if (shouldDeductStock) {
+        const activeItems = order.items.filter((item) => item.status !== 'cancelled');
+        const productIds = activeItems.map((item) => item.product._id || item.product);
+        const products = await Product.find({ _id: { $in: productIds } }).session(session);
+        const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+        for (let i = 0; i < activeItems.length; i++) {
+          const item = activeItems[i];
+          const pid = String(item.product._id || item.product);
+          const product = productMap.get(pid);
+          if (!product || !product.isActive) {
+            throw new Error('Invalid product in order');
+          }
+
+          if (product.stock < item.quantity) {
+            throw new Error(`Insufficient stock for ${product.name}`);
+          }
+
+          product.stock -= item.quantity;
+          await product.save({ session });
         }
+      }
 
-        if (product.stock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
-        }
+      order.status = targetStatus;
+      statusChanged = true;
 
-        product.stock -= item.quantity;
-        await product.save({ session });
+      if (targetStatus === 'delivered' && !order.deliveredAt) {
+        order.deliveredAt = new Date();
+      }
+      if ((targetStatus === 'shipped' || targetStatus === 'dispatched') && !order.dispatchedAt) {
+        order.dispatchedAt = new Date();
       }
     }
 
-    order.status = status;
-    if (status === 'delivered' && !order.deliveredAt) {
-      order.deliveredAt = new Date();
-    }
-    if ((status === 'shipped' || status === 'dispatched') && !order.dispatchedAt) {
-      order.dispatchedAt = new Date();
-    }
+    // Ensure order subtotal and totalAmount are normalized based strictly on active items
+    computeOrderTotals(order);
+    const currentTotal = order.totalAmount;
 
-    if (amountPaid !== undefined) {
+    // Process Payment Updates
+    const normPaymentStatus = String(paymentStatus || '').toUpperCase();
+    if (normPaymentStatus === 'PAID' || (amountPaid !== undefined && Number(amountPaid) >= currentTotal)) {
+      order.amountPaid = currentTotal;
+      order.amountDue = 0;
+      order.paymentStatus = 'PAID';
+    } else if (amountPaid !== undefined) {
       order.amountPaid = Math.max(0, round2(Number(amountPaid)));
-      order.amountDue = Math.max(0, round2(order.totalAmount - order.amountPaid));
-      order.paymentStatus = order.amountPaid >= order.totalAmount ? 'PAID' : order.amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE';
-    } else if (paymentStatus && ['DUE', 'PARTIALLY_PAID', 'PAID'].includes(paymentStatus)) {
-      order.paymentStatus = paymentStatus;
-      if (paymentStatus === 'PAID') {
-        order.amountPaid = order.totalAmount;
+      order.amountDue = Math.max(0, round2(currentTotal - order.amountPaid));
+      order.paymentStatus = order.amountPaid >= currentTotal ? 'PAID' : order.amountPaid > 0 ? 'PARTIALLY_PAID' : 'DUE';
+    } else if (['DUE', 'PARTIALLY_PAID', 'PAID'].includes(normPaymentStatus)) {
+      order.paymentStatus = normPaymentStatus;
+      if (normPaymentStatus === 'PAID') {
+        order.amountPaid = currentTotal;
         order.amountDue = 0;
       }
     }
@@ -507,12 +518,12 @@ export const updateOrderStatus = async (req, res) => {
 
     // Trigger push & email notifications if status actually changed
     if (statusChanged) {
-      const statusTitle = `Order ${status.toUpperCase()}`;
+      const statusTitle = `Order ${order.status.toUpperCase()}`;
       sendPushToUsers(
         [String(order.buyer?._id || order.buyer)],
         statusTitle,
-        `Order #${String(order._id).slice(-6).toUpperCase()} is now ${status}.`,
-        { orderId: String(order._id), status }
+        `Order #${String(order._id).slice(-6).toUpperCase()} is now ${order.status}.`,
+        { orderId: String(order._id), status: order.status }
       ).catch((err) => console.error('[Push Error]', err.message));
 
       const buyerEmail = order.buyer?.email || (typeof order.buyer === 'string' ? (await User.findById(order.buyer))?.email : null);
@@ -523,24 +534,24 @@ export const updateOrderStatus = async (req, res) => {
           recipientEmail: buyerEmail,
           customerName: buyerName,
           order,
-          status
+          status: order.status
         }).catch((err) => console.error('[Order Status Email Error]', err.message));
       }
 
       // Create in-app notification for the buyer
       createInAppNotification({
         recipient: order.buyer?._id || order.buyer,
-        title: `Order #${String(order._id).slice(-6).toUpperCase()} ${status.toUpperCase()}`,
-        message: `Your wholesale order status is now ${status}.`,
-        type: status === 'delivered' ? 'delivery' : 'order',
-        metadata: { orderId: String(order._id), status }
+        title: `Order #${String(order._id).slice(-6).toUpperCase()} ${order.status.toUpperCase()}`,
+        message: `Your wholesale order status is now ${order.status}.`,
+        type: order.status === 'delivered' ? 'delivery' : 'order',
+        metadata: { orderId: String(order._id), status: order.status }
       }).catch((err) => console.error('[InApp Notification Error]', err.message));
     }
 
-    return success(res, order, 'Order status updated');
+    return success(res, computeOrderTotals(order), 'Order updated successfully');
   } catch (error) {
     await session.abortTransaction();
-    return res.status(400).json({ success: false, message: error.message || 'Failed to update order status' });
+    return res.status(400).json({ success: false, message: error.message || 'Failed to update order' });
   } finally {
     session.endSession();
   }
