@@ -71,7 +71,9 @@ export const markAsRead = async (req, res) => {
   notification.readAt = new Date();
   await notification.save();
 
-  return success(res, notification, 'Notification marked as read');
+  const unreadCount = await Notification.countDocuments({ recipient: req.user._id, isRead: false });
+
+  return success(res, { notification, unreadCount }, 'Notification marked as read');
 };
 
 export const markAllAsRead = async (req, res) => {
@@ -80,7 +82,7 @@ export const markAllAsRead = async (req, res) => {
     { recipient: req.user._id, isRead: false },
     { $set: { isRead: true, readAt: now } }
   );
-  return success(res, null, 'All notifications marked as read');
+  return success(res, { unreadCount: 0 }, 'All notifications marked as read');
 };
 
 export const createInAppNotification = async ({ recipient, title, message, type, metadata }) => {
