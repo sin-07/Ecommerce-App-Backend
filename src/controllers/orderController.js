@@ -757,6 +757,32 @@ export const cancelOrderItem = async (req, res) => {
     targetItem.cancelledBy = req.user._id;
     targetItem.cancelledAt = cancelDate;
 
+    // Recalculate subtotal, totalAmount, and amountDue based strictly on NON-CANCELLED (active) items
+    const activeItems = order.items.filter((it) => it.status !== 'cancelled');
+    const newSubtotal = activeItems.reduce(
+      (sum, it) => sum + (it.lineTotal !== undefined ? it.lineTotal : it.quantity * it.unitPrice || 0),
+      0
+    );
+    const discount = Number(order.discount) || 0;
+    const deliveryFee = Number(order.deliveryFee) || 0;
+    const newTotal = Math.max(0, newSubtotal + deliveryFee - discount);
+    const amountPaid = Number(order.amountPaid) || 0;
+    const newAmountDue = Math.max(0, newTotal - amountPaid);
+
+    order.subtotal = newSubtotal;
+    order.totalAmount = newTotal;
+    order.amountDue = newAmountDue;
+
+    if (newTotal === 0) {
+      order.paymentStatus = 'PAID';
+    } else if (amountPaid >= newTotal) {
+      order.paymentStatus = 'PAID';
+    } else if (amountPaid > 0) {
+      order.paymentStatus = 'PARTIALLY_PAID';
+    } else {
+      order.paymentStatus = 'DUE';
+    }
+
     // Check if all items are now cancelled
     const allCancelled = order.items.every((it) => it.status === 'cancelled');
     if (allCancelled) {
@@ -772,25 +798,36 @@ export const cancelOrderItem = async (req, res) => {
     const shortId = String(order._id).slice(-6).toUpperCase();
     const buyerId = String(order.buyer?._id || order.buyer);
     const itemName = targetItem.name || 'Product';
+    const cancelledItemAmount = targetItem.lineTotal !== undefined ? targetItem.lineTotal : targetItem.quantity * targetItem.unitPrice || 0;
+    const formattedCancelledAmount = `₹${Number(cancelledItemAmount).toLocaleString('en-IN')}`;
+    const formattedNewTotal = `₹${Number(newTotal).toLocaleString('en-IN')}`;
+
+    const notifMessage = `${itemName} was cancelled because ${cleanReason}. ${formattedCancelledAmount} has been removed from your order total. Your revised order total is ${formattedNewTotal}.`;
 
     // Create in-app notification
     createInAppNotification({
       recipient: buyerId,
       title: 'Product Cancelled From Order',
-      message: `Product "${itemName}" from order #${shortId} was cancelled. Reason: ${cleanReason}`,
+      message: notifMessage,
       type: 'order',
-      metadata: { orderId: String(order._id), itemId: String(targetItem._id || ''), reason: cleanReason }
+      metadata: {
+        orderId: String(order._id),
+        itemId: String(targetItem._id || ''),
+        cancelledAmount: cancelledItemAmount,
+        revisedTotal: newTotal,
+        reason: cleanReason
+      }
     }).catch((err) => console.error('[InApp Notification Error]', err.message));
 
     // Send push notification
     sendPushToUsers(
       [buyerId],
       'Product Cancelled From Order',
-      `Product "${itemName}" from order #${shortId} was cancelled. Reason: ${cleanReason}`,
-      { orderId: String(order._id), status: order.status }
+      notifMessage,
+      { orderId: String(order._id), status: order.status, revisedTotal: newTotal }
     ).catch((err) => console.error('[Push Error]', err.message));
 
-    return success(res, order, `Item "${itemName}" cancelled successfully`);
+    return success(res, order, 'Order item cancelled and total updated successfully');
   } catch (error) {
     await session.abortTransaction();
     return res.status(400).json({ success: false, message: error.message || 'Failed to cancel order item' });
