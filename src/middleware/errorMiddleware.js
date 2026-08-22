@@ -6,11 +6,11 @@ export const notFound = (req, res) => {
 };
 
 export const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const safeMessage = statusCode >= 500 ? 'Something went wrong. Please try again.' : err.message || 'Request failed';
+  const statusCode = err.statusCode || (err.name === 'ValidationError' || err.name === 'CastError' ? 400 : 500);
+  const errorMessage = err.message || 'Request failed';
 
   if (statusCode >= 500) {
-    console.error('[Unhandled error]', err);
+    console.error('[Unhandled server error]', err);
   }
 
   if (res.headersSent) {
@@ -19,6 +19,6 @@ export const errorHandler = (err, req, res, next) => {
 
   return res.status(statusCode).json({
     success: false,
-    message: safeMessage
+    message: errorMessage
   });
 };

@@ -7,18 +7,29 @@ const cartPopulateOptions = {
   select: 'name price discount stock minOrderQuantity sku unit packSize badge imageUrl category isActive pricingTiers'
 };
 
-const findOrCreateCart = async (userId) => {
-  // Atomic upsert: one DB round-trip instead of find + conditionally create
-  const cart = await Cart.findOneAndUpdate(
+const getRawCart = async (userId) => {
+  return await Cart.findOneAndUpdate(
     { user: userId },
     { $setOnInsert: { user: userId, items: [] } },
     { upsert: true, new: true }
-  ).populate(cartPopulateOptions);
-  return cart;
+  );
 };
 
 export const getMyCart = async (req, res) => {
-  const cart = await findOrCreateCart(req.user._id);
+  const cart = await Cart.findOneAndUpdate(
+    { user: req.user._id },
+    { $setOnInsert: { user: req.user._id, items: [] } },
+    { upsert: true, new: true }
+  ).populate(cartPopulateOptions);
+
+  if (cart && Array.isArray(cart.items) && cart.items.some((item) => !item.product)) {
+    const validItems = cart.items
+      .filter((item) => Boolean(item.product))
+      .map((item) => ({ product: item.product._id, quantity: item.quantity }));
+    await Cart.updateOne({ _id: cart._id }, { $set: { items: validItems } });
+    cart.items = cart.items.filter((item) => Boolean(item.product));
+  }
+
   return success(res, cart, 'Cart fetched');
 };
 
@@ -45,15 +56,17 @@ export const addToCart = async (req, res) => {
     });
   }
 
-  const cart = await findOrCreateCart(req.user._id);
+  const cart = await getRawCart(req.user._id);
 
-  const idx = cart.items.findIndex((item) => String(item.product._id || item.product) === productId);
+  const idx = cart.items.findIndex((item) => String(item.product?._id || item.product) === String(productId));
   if (idx >= 0) {
     const nextQty = cart.items[idx].quantity + Number(quantity);
     if (nextQty > product.stock) {
       return res.status(400).json({ success: false, message: `Only ${product.stock} units available` });
     }
     cart.items[idx].quantity = nextQty;
+    // ensure product is stored as ObjectId
+    cart.items[idx].product = product._id;
   } else {
     if (Number(quantity) > product.stock) {
       return res.status(400).json({ success: false, message: `Only ${product.stock} units available` });
@@ -73,8 +86,8 @@ export const updateCartItem = async (req, res) => {
     return res.status(400).json({ success: false, message: 'productId and valid quantity are required' });
   }
 
-  const cart = await findOrCreateCart(req.user._id);
-  const idx = cart.items.findIndex((item) => String(item.product._id || item.product) === productId);
+  const cart = await getRawCart(req.user._id);
+  const idx = cart.items.findIndex((item) => String(item.product?._id || item.product) === String(productId));
 
   if (idx < 0) {
     return res.status(404).json({ success: false, message: 'Cart item not found' });
@@ -101,6 +114,7 @@ export const updateCartItem = async (req, res) => {
   }
 
   cart.items[idx].quantity = Number(quantity);
+  cart.items[idx].product = product._id;
   await cart.save();
 
   const populated = await cart.populate(cartPopulateOptions);
@@ -109,9 +123,9 @@ export const updateCartItem = async (req, res) => {
 
 export const removeCartItem = async (req, res) => {
   const { productId } = req.params;
-  const cart = await findOrCreateCart(req.user._id);
+  const cart = await getRawCart(req.user._id);
 
-  cart.items = cart.items.filter((item) => String(item.product._id || item.product) !== productId);
+  cart.items = cart.items.filter((item) => String(item.product?._id || item.product) !== String(productId));
   await cart.save();
 
   const populated = await cart.populate(cartPopulateOptions);
@@ -119,7 +133,7 @@ export const removeCartItem = async (req, res) => {
 };
 
 export const clearCart = async (req, res) => {
-  const cart = await findOrCreateCart(req.user._id);
+  const cart = await getRawCart(req.user._id);
   cart.items = [];
   await cart.save();
 
