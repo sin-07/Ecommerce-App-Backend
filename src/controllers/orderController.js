@@ -6,6 +6,7 @@ import { User } from '../models/User.js';
 import { createInAppNotification } from './notificationController.js';
 import { sendPushToUsers } from '../services/pushNotificationService.js';
 import { sendOrderEmailNotification, sendAdminNewOrderNotification } from '../services/emailService.js';
+import { sendBuyerOrderWhatsApp, sendAdminNewOrderWhatsApp, sendOrderStatusUpdateWhatsApp } from '../services/whatsappService.js';
 import { paginated, success } from '../utils/apiResponse.js';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -246,6 +247,12 @@ export const placeOrder = async (req, res) => {
       order,
       buyer: req.user
     }).catch((err) => console.error('[Admin Order Email Error]', err.message));
+
+    // Async WhatsApp notification to Buyer
+    sendBuyerOrderWhatsApp(order).catch((err) => console.error('[Buyer WhatsApp Error]', err.message));
+
+    // Async WhatsApp instant alert to Admin
+    sendAdminNewOrderWhatsApp(order, req.user).catch((err) => console.error('[Admin WhatsApp Error]', err.message));
 
     // Create in-app notification for the customer
     createInAppNotification({
@@ -553,6 +560,9 @@ export const updateOrderStatus = async (req, res) => {
           status: order.status
         }).catch((err) => console.error('[Order Status Email Error]', err.message));
       }
+
+      // Async WhatsApp notification on order status change
+      sendOrderStatusUpdateWhatsApp(order, order.status).catch((err) => console.error('[Order Status WhatsApp Error]', err.message));
 
       // Create in-app notification for the buyer
       createInAppNotification({
