@@ -59,6 +59,15 @@ export const env = {
     email: resolvedAdminEmail,
     password: process.env.ADMIN_PASSWORD || '',
     companyName: process.env.ADMIN_COMPANY || 'AP Enterprises'
+  },
+  appVersion: {
+    minVersion: process.env.MIN_APP_VERSION || '1.0.1',
+    latestVersion: process.env.LATEST_APP_VERSION || '1.0.1',
+    minVersionCode: Number(process.env.MIN_APP_VERSION_CODE || 2),
+    latestVersionCode: Number(process.env.LATEST_APP_VERSION_CODE || 2),
+    forceUpdate: String(process.env.FORCE_UPDATE !== 'false'),
+    playStoreUrl: 'market://details?id=com.apenterprises.b2b',
+    playStoreWebUrl: 'https://play.google.com/store/apps/details?id=com.apenterprises.b2b'
   }
 };
 

@@ -106,6 +106,43 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Dynamic App Configuration & Force Update Endpoint (instant, DB-free response)
+app.get('/api/app-config', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      ...env.appVersion,
+      title: 'Update Required',
+      message: 'A critical update is available for EggKart. To continue placing orders and managing your wholesale account, please update to the latest version.',
+      releaseNotes: [
+        'Mandatory performance & security updates',
+        'Streamlined fast minimalist startup',
+        'Direct business email verification & order routing'
+      ]
+    }
+  });
+});
+
+// Enforce minimum app version on all /api routes if requested by client
+app.use('/api', (req, res, next) => {
+  if (req.path === '/app-config') return next();
+
+  const clientVersionCode = Number(req.headers['x-app-version-code']);
+  if (
+    env.appVersion.forceUpdate &&
+    clientVersionCode &&
+    clientVersionCode < env.appVersion.minVersionCode
+  ) {
+    return res.status(426).json({
+      success: false,
+      code: 'UPDATE_REQUIRED',
+      message: 'Please update EggKart to continue.',
+      data: env.appVersion
+    });
+  }
+  next();
+});
+
 // Attach database connection check to /api routes
 app.use('/api', requireDb, routes);
 
