@@ -420,7 +420,7 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
     process.env.ADMIN_NOTIFICATION_EMAIL ||
     env.admin.email ||
     process.env.ADMIN_EMAIL ||
-    'aniket.singh9322@gmail.com'
+    'apenterprises.eggkart@gmail.com'
   ).trim().toLowerCase();
 
   if (!adminEmail) {

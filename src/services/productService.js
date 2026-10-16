@@ -66,7 +66,7 @@ export const createProduct = async ({ sellerId, file, payload }) => {
     imageUrl = payload.imageUrl.trim();
   }
 
-  return Product.create({
+  const product = await Product.create({
     name: String(payload.name || '').trim(),
     description: String(payload.description || '').trim(),
     category: String(payload.category || 'Beverages').trim(),
@@ -86,6 +86,9 @@ export const createProduct = async ({ sellerId, file, payload }) => {
     imageUrl,
     seller: sellerId
   });
+
+  invalidateCategoryCache();
+  return product;
 };
 
 export const getProducts = async ({
@@ -168,21 +171,38 @@ export const getProducts = async ({
   };
 };
 
+let cachedCategories = null;
+let cachedCategoriesExpiry = 0;
+
+export const invalidateCategoryCache = () => {
+  cachedCategories = null;
+  cachedCategoriesExpiry = 0;
+};
+
 export const getCategories = async () => {
+  const now = Date.now();
+  if (cachedCategories && now < cachedCategoriesExpiry) {
+    return cachedCategories;
+  }
+
   const categories = await Product.aggregate([
     { $match: { isActive: true } },
     { $group: { _id: '$category', count: { $sum: 1 } } },
     { $sort: { count: -1 } }
   ]);
 
-  return categories.map((c) => ({
+  const result = categories.map((c) => ({
     name: c._id,
     count: c.count
   }));
+
+  cachedCategories = result;
+  cachedCategoriesExpiry = now + 5 * 60 * 1000; // 5-minute memory cache to spare MongoDB M0
+  return result;
 };
 
 export const getProductById = async (id) => {
-  return Product.findById(id).populate('seller', 'name companyName');
+  return Product.findById(id).populate('seller', 'name companyName').lean();
 };
 
 export const updateProduct = async ({ id, sellerId, role, payload, file }) => {
@@ -230,7 +250,9 @@ export const updateProduct = async ({ id, sellerId, role, payload, file }) => {
     update.imageUrl = payload.imageUrl.trim();
   }
 
-  return Product.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+  const updated = await Product.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+  invalidateCategoryCache();
+  return updated;
 };
 
 export const deleteProduct = async ({ id, sellerId, role }) => {
@@ -245,6 +267,7 @@ export const deleteProduct = async ({ id, sellerId, role }) => {
 
   // Perform permanent real deletion from the database
   const deleted = await Product.findByIdAndDelete(id);
+  invalidateCategoryCache();
   return deleted;
 };
 

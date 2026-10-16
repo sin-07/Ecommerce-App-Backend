@@ -27,8 +27,8 @@ export const env = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT || 465),
     secure: String(process.env.SMTP_SECURE || 'true') === 'true',
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
+    user: (process.env.SMTP_USER || '').trim(),
+    pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '')
   },
   dnsServers: String(process.env.DNS_SERVERS || '')
     .split(',')

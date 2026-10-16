@@ -20,6 +20,9 @@ export const createProduct = async (req, res) => {
 export const getProducts = async (req, res) => {
   const { items, pagination } = await getProductsService(req.query);
 
+  // Cache catalog listings on Vercel Edge CDN for 60s to shield MongoDB Free Tier
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=180');
+
   return paginated(
     res,
     items,
@@ -30,6 +33,10 @@ export const getProducts = async (req, res) => {
 
 export const getCategories = async (req, res) => {
   const categories = await getCategoriesService();
+
+  // Cache categories on Vercel Edge CDN for 5 minutes
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+
   return success(res, categories, 'Categories fetched');
 };
 
@@ -38,6 +45,9 @@ export const getProductById = async (req, res) => {
   if (!product) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
+
+  // Cache individual product details on Edge CDN for 2 minutes
+  res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
 
   return success(res, product);
 };

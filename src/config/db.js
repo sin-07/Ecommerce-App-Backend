@@ -45,9 +45,9 @@ export const connectDb = async () => {
     }
 
     cached.promise = mongoose.connect(env.mongoUri, {
-      maxPoolSize: 10,
+      maxPoolSize: 3, // Conservative pool per serverless lambda to stay safely below M0's 500 connection limit
       minPoolSize: 0,
-      maxIdleTimeMS: 30000,
+      maxIdleTimeMS: 15000,
       connectTimeoutMS: 10000,
       serverSelectionTimeoutMS: 7000,
       socketTimeoutMS: 45000,

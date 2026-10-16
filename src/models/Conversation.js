@@ -45,4 +45,7 @@ const conversationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+conversationSchema.index({ buyer: 1, updatedAt: -1 });
+conversationSchema.index({ seller: 1, updatedAt: -1 });
+
 export const Conversation = mongoose.model('Conversation', conversationSchema);
