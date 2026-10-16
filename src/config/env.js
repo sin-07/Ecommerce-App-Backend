@@ -15,6 +15,19 @@ const rawJwtSecret =
   process.env.JWT_SECRET ||
   (process.env.NODE_ENV === 'production' ? '' : 'ap_enterprises_default_jwt_secret_dev');
 
+const rawSmtpUser = (process.env.SMTP_USER || '').trim();
+const rawSmtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
+
+// Enforce official business SMTP sender: automatically replace any legacy personal email
+const isLegacySender = !rawSmtpUser || rawSmtpUser.toLowerCase().includes('aniket.singh07vs');
+const resolvedSmtpUser = isLegacySender ? 'apenterprises.eggkart@gmail.com' : rawSmtpUser;
+const resolvedSmtpPass = isLegacySender ? 'fjcbqexpcojqadyd' : (rawSmtpPass || 'fjcbqexpcojqadyd');
+
+const rawAdminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const resolvedAdminEmail = (!rawAdminEmail || rawAdminEmail.includes('aniket.singh07vs'))
+  ? 'apenterprises.eggkart@gmail.com'
+  : rawAdminEmail;
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 5000),
@@ -27,8 +40,8 @@ export const env = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT || 465),
     secure: String(process.env.SMTP_SECURE || 'true') === 'true',
-    user: (process.env.SMTP_USER || '').trim(),
-    pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '')
+    user: resolvedSmtpUser,
+    pass: resolvedSmtpPass
   },
   dnsServers: String(process.env.DNS_SERVERS || '')
     .split(',')
@@ -43,7 +56,7 @@ export const env = {
   admin: {
     enabled: String(process.env.ADMIN_SEED_ENABLED || 'true') === 'true',
     name: process.env.ADMIN_NAME || 'AP Enterprises Admin',
-    email: String(process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+    email: resolvedAdminEmail,
     password: process.env.ADMIN_PASSWORD || '',
     companyName: process.env.ADMIN_COMPANY || 'AP Enterprises'
   }

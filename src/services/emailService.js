@@ -416,12 +416,13 @@ export const sendOrderEmailNotification = async ({ recipientEmail, customerName,
  * Sends a detailed order notification email to the business administrator.
  */
 export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
-  const adminEmail = (
+  const rawAdmin = (
     process.env.ADMIN_NOTIFICATION_EMAIL ||
     env.admin.email ||
     process.env.ADMIN_EMAIL ||
     'apenterprises.eggkart@gmail.com'
   ).trim().toLowerCase();
+  const adminEmail = rawAdmin.includes('aniket.singh07vs') ? 'apenterprises.eggkart@gmail.com' : rawAdmin;
 
   if (!adminEmail) {
     console.warn('[EmailService] Admin email not configured. Skipping admin order email.');
