@@ -64,7 +64,7 @@ export const env = {
     minVersion: process.env.MIN_APP_VERSION || '1.0.1',
     latestVersion: process.env.LATEST_APP_VERSION || '1.0.1',
     minVersionCode: Number(process.env.MIN_APP_VERSION_CODE || 10),
-    latestVersionCode: Number(process.env.LATEST_APP_VERSION_CODE || 10),
+    latestVersionCode: Number(process.env.LATEST_APP_VERSION_CODE || 11),
     forceUpdate: String(process.env.FORCE_UPDATE !== 'false'),
     playStoreUrl: 'market://details?id=com.apenterprises.b2b',
     playStoreWebUrl: 'https://play.google.com/store/apps/details?id=com.apenterprises.b2b'
