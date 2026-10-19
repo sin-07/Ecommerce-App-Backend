@@ -55,8 +55,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#92400E',
         badgeBorder: '#FDE68A',
         iconEmoji: '📋',
-        headline: 'Your wholesale order has been received.',
-        subtext: 'We are preparing your items for warehouse dispatch.'
+        headline: 'Your wholesale order has been received! ⏳',
+        subtext: 'We are preparing your items for warehouse dispatch. 📦'
       };
     case 'packed':
       return {
@@ -65,8 +65,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#1D4ED8',
         badgeBorder: '#BFDBFE',
         iconEmoji: '📦',
-        headline: 'Your order has been packed & staged.',
-        subtext: 'Your products have been packed and are ready for dispatch.'
+        headline: 'Your order has been packed & staged! ✨',
+        subtext: 'Your products have been packed and are ready for dispatch. 🚚'
       };
     case 'shipped':
       return {
@@ -75,8 +75,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#0284C7',
         badgeBorder: '#BAE6FD',
         iconEmoji: '🚚',
-        headline: 'Your order is on the way!',
-        subtext: 'Your bulk wholesale order has been dispatched and is en route.'
+        headline: 'Your order is on the way! 💨',
+        subtext: 'Your bulk wholesale order has been dispatched and is en route. 📍'
       };
     case 'delivered':
       return {
@@ -85,8 +85,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#047857',
         badgeBorder: '#A7F3D0',
         iconEmoji: '✅',
-        headline: 'Your order has been delivered.',
-        subtext: 'Thank you for choosing AP Enterprises as your wholesale supply partner!'
+        headline: 'Your order has been delivered! 🎉',
+        subtext: 'Thank you for choosing AP Enterprises as your wholesale supply partner! 🤝'
       };
     case 'cancelled':
       return {
@@ -95,8 +95,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#B91C1C',
         badgeBorder: '#FECACA',
         iconEmoji: '⚠️',
-        headline: 'Your order has been cancelled.',
-        subtext: 'If you have questions regarding this cancellation, please contact support.'
+        headline: 'Your order has been cancelled. ❌',
+        subtext: 'If you have questions regarding this cancellation, please contact support. 📞'
       };
     default:
       return {
@@ -105,8 +105,8 @@ const getStatusConfig = (status) => {
         badgeColor: '#334155',
         badgeBorder: '#E2E8F0',
         iconEmoji: '📄',
-        headline: `Your order status has been updated to ${status}.`,
-        subtext: 'Check your AP Enterprises app for live tracking.'
+        headline: `Your order status has been updated to ${status}. 📋`,
+        subtext: 'Check your AP Enterprises app for live tracking. 📲'
       };
   }
 };
@@ -135,7 +135,7 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="supported-color-schemes" content="light dark">
-  <title>AP Enterprises Verification Code</title>
+  <title>AP Enterprises Verification Code 🔐</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -172,10 +172,10 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
               </table>
 
               <h1 class="heading-text" style="margin: 0 0 3px 0; color: #0f172a; font-size: 20px; font-weight: 900; letter-spacing: 0.5px;">
-                AP ENTERPRISES
+                AP ENTERPRISES 📦
               </h1>
               <p style="margin: 0; color: #64748b; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
-                Wholesale Beverages &bull; Eggs &bull; Supplies
+                Wholesale Beverages 🥤 &bull; Eggs 🥚 &bull; Supplies 📦
               </p>
             </td>
           </tr>
@@ -193,15 +193,15 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
               <!-- Security Badge Pill -->
               <div style="display: inline-block; background-color: #eff6ff; border: 1px solid #dbeafe; padding: 5px 14px; border-radius: 20px; margin-bottom: 18px;">
                 <span style="color: #1d4ed8; font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;">
-                  &#128274; Security Verification
+                  🔒 Security Verification ✨
                 </span>
               </div>
 
               <h2 class="heading-text" style="margin: 0 0 8px 0; color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: -0.4px;">
-                Verify Your Account
+                Verify Your Account 📱
               </h2>
               <p class="body-text" style="margin: 0 auto 24px auto; color: #475569; font-size: 14px; line-height: 1.5; max-width: 360px;">
-                Use the 6-digit verification code below to verify your business wholesale account:
+                Use the 6-digit verification code below to verify your business wholesale account 🚀:
               </p>
 
               <!-- 6-DIGIT OTP TILES (Guaranteed Never to Wrap) -->
@@ -215,16 +215,16 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; max-width: 360px; width: 100%;">
                 <tr>
                   <td style="padding: 10px 14px; text-align: center;">
-                    <span style="font-size: 13px; vertical-align: middle;">&#9201;</span>
+                    <span style="font-size: 13px; vertical-align: middle;">⏱️</span>
                     <span style="font-size: 12.5px; color: #92400e; font-weight: 600; vertical-align: middle; margin-left: 4px;">
-                      This code expires in <strong>${expiryMinutes} minutes</strong>
+                      This code expires in <strong>${expiryMinutes} minutes</strong> ⏳
                     </span>
                   </td>
                 </tr>
               </table>
 
               <p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.5;">
-                &#128737;&#65039; <strong>Security Notice:</strong> AP Enterprises staff will never ask for your code. Never share this code with anyone.
+                🛡️ <strong>Security Notice:</strong> AP Enterprises staff will never ask for your code. Never share this code with anyone. 🚫
               </p>
             </td>
           </tr>
@@ -233,10 +233,10 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
           <tr>
             <td class="footer-box" style="padding: 22px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
               <p class="footer-text" style="margin: 0 0 6px 0; font-size: 11.5px; color: #64748b;">
-                If you did not request this verification, you can safely ignore this email.
+                If you did not request this verification, you can safely ignore this email. 🔒
               </p>
               <p class="footer-text" style="margin: 0; font-size: 11px; color: #94a3b8;">
-                &copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Distribution
+                &copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Distribution 📦 🥚 🥤
               </p>
             </td>
           </tr>
@@ -256,8 +256,8 @@ export const sendRegistrationOtpEmail = async ({ email, otp, expiryMinutes = 10 
   const cleanEmail = String(email || '').trim().toLowerCase();
   const transport = createMailTransport();
 
-  const subject = `${otp} is your AP Enterprises Verification Code`;
-  const text = `AP Enterprises Verification Code\n\nYour 6-digit verification code is: ${otp}\nThis code is valid for ${expiryMinutes} minutes.\n\nThank you for choosing AP Enterprises.`;
+  const subject = `🔐 ${otp} is your AP Enterprises Verification Code ✨`;
+  const text = `🔐 AP Enterprises Verification Code ✨\n\nYour 6-digit verification code is: ${otp}\n⏳ This code is valid for ${expiryMinutes} minutes.\n🛡️ Never share this code with anyone. 🚫\n\n✨ Thank you for choosing AP Enterprises! 📦 🥚 🥤`;
   const html = generateOtpEmailHtml({ otp, expiryMinutes });
 
   if (!transport) {
@@ -313,11 +313,11 @@ export const renderOrderEmailHtml = ({
       (item) => `
       <tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-          <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${item.name}</div>
-          <div style="color: #64748b; font-size: 12px;">Qty: ${item.quantity} ${item.unit || 'unit'}${item.quantity > 1 ? 's' : ''}</div>
+          <div style="font-weight: 700; color: #0f172a; font-size: 14px;">📦 ${item.name}</div>
+          <div style="color: #64748b; font-size: 12px;">🔢 Qty: ${item.quantity} ${item.unit || 'unit'}${item.quantity > 1 ? 's' : ''}</div>
         </td>
         <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 700; color: #0f172a; font-size: 14px;">
-          ${formatCurrency(item.lineTotal || item.unitPrice * item.quantity)}
+          💵 ${formatCurrency(item.lineTotal || item.unitPrice * item.quantity)}
         </td>
       </tr>
     `
@@ -330,7 +330,7 @@ export const renderOrderEmailHtml = ({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Update - AP Enterprises</title>
+  <title>Order Update #${formattedOrderId} - AP Enterprises 📦</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 32px 12px;">
@@ -339,8 +339,8 @@ export const renderOrderEmailHtml = ({
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);">
           <tr>
             <td style="background-color: #0f172a; padding: 28px 30px; text-align: left;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900;">AP ENTERPRISES</h1>
-              <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 12px;">Order Status: #${formattedOrderId}</p>
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900;">AP ENTERPRISES 📦</h1>
+              <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 12px;">📋 Order Status: #${formattedOrderId}</p>
             </td>
           </tr>
           <tr>
@@ -349,23 +349,24 @@ export const renderOrderEmailHtml = ({
                 <h3 style="margin: 0 0 4px 0; color: ${cfg.badgeColor}; font-size: 16px; font-weight: 800;">${cfg.iconEmoji} ${cfg.headline}</h3>
                 <p style="margin: 0; color: ${cfg.badgeColor}; font-size: 13px;">${cfg.subtext}</p>
               </div>
-              <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 15px; font-weight: 800;">Items Ordered</h4>
+              <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 15px; font-weight: 800;">🛒 Items Ordered</h4>
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 ${itemsHtml}
                 <tr>
-                  <td style="padding: 14px 0 0 0; font-weight: 800; color: #0f172a; font-size: 15px;">Total Amount:</td>
+                  <td style="padding: 14px 0 0 0; font-weight: 800; color: #0f172a; font-size: 15px;">💰 Total Amount:</td>
                   <td style="padding: 14px 0 0 0; text-align: right; font-weight: 900; color: #1d4ed8; font-size: 17px;">${formatCurrency(totalAmount)}</td>
                 </tr>
               </table>
               <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 0 0 4px 0; font-size: 12px; color: #64748b;"><strong>Delivery Address:</strong> ${shippingAddress || 'On file'}</p>
-                <p style="margin: 0; font-size: 12px; color: #64748b;"><strong>Contact Phone:</strong> ${phoneNumber || 'On file'}</p>
+                <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;"><strong>📍 Delivery Address:</strong> ${shippingAddress || 'On file'}</p>
+                <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;"><strong>📞 Contact Phone:</strong> ${phoneNumber || 'On file'}</p>
+                ${notes ? `<p style="margin: 0; font-size: 12px; color: #b45309;"><strong>📝 Notes:</strong> ${notes}</p>` : ''}
               </div>
             </td>
           </tr>
           <tr>
             <td style="padding: 18px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
-              <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Distribution</p>
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Distribution 📦 🥚 🥤</p>
             </td>
           </tr>
         </table>
@@ -388,37 +389,38 @@ export const renderOrderEmailText = ({
   totalAmount,
   status,
   shippingAddress,
-  phoneNumber
+  phoneNumber,
+  notes
 }) => {
   const cfg = getStatusConfig(status);
   const formattedOrderId = String(orderId || '').slice(-6).toUpperCase();
   const itemList = (items || [])
-    .map((i) => `- ${i.name} x ${i.quantity} @ ${formatCurrency(i.unitPrice)} = ${formatCurrency(i.lineTotal || i.unitPrice * i.quantity)}`)
+    .map((i) => `- 📦 ${i.name} x ${i.quantity} @ ${formatCurrency(i.unitPrice)} = ${formatCurrency(i.lineTotal || i.unitPrice * i.quantity)}`)
     .join('\n');
 
   return `
-AP ENTERPRISES - WHOLESALE SUPPLY
-Order Reference: #${formattedOrderId}
-Status: ${cfg.badgeLabel}
+📦 AP ENTERPRISES - WHOLESALE SUPPLY 🥚 🥤
+📋 Order Reference: #${formattedOrderId}
+${cfg.iconEmoji} Status: ${cfg.badgeLabel}
 
-Dear ${customerName || 'Valued Customer'},
+👋 Dear ${customerName || 'Valued Customer'},
 
-${cfg.headline}
+${cfg.iconEmoji} ${cfg.headline}
 ${cfg.subtext}
 
-ORDER SUMMARY:
-Order Date: ${new Date(orderDate).toLocaleDateString()}
-Grand Total: ${formatCurrency(totalAmount)}
+🛒 ORDER SUMMARY:
+📅 Order Date: ${new Date(orderDate).toLocaleDateString()}
+💰 Grand Total: ${formatCurrency(totalAmount)}
 
-ITEMS:
+📦 ITEMS:
 ${itemList}
 
-DELIVERY DETAILS:
-Recipient: ${customerName || 'On file'}
-Phone: ${phoneNumber || 'On file'}
-Address: ${shippingAddress || 'On file'}
+🚚 DELIVERY DETAILS:
+👤 Recipient: ${customerName || 'On file'}
+📞 Phone: ${phoneNumber || 'On file'}
+📍 Address: ${shippingAddress || 'On file'}${notes ? `\n📝 Notes: ${notes}` : ''}
 
-Thank you for choosing AP Enterprises!
+🎉 Thank you for choosing AP Enterprises as your wholesale supply partner! 🤝
   `.trim();
 };
 
@@ -444,7 +446,8 @@ export const sendOrderEmailNotification = async ({ recipientEmail, customerName,
   };
 
   const cfg = getStatusConfig(orderData.status);
-  const subject = `AP Enterprises: Order #${String(order._id).slice(-6).toUpperCase()} ${cfg.badgeLabel}`;
+  const formattedOrderId = String(order._id || '').slice(-6).toUpperCase();
+  const subject = `${cfg.iconEmoji} AP Enterprises: Order #${formattedOrderId} — ${cfg.badgeLabel} ✨`;
   const html = renderOrderEmailHtml(orderData);
   const text = renderOrderEmailText(orderData);
 
@@ -512,17 +515,17 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
       (item) => `
       <tr>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b;">
-          <strong>${item.name}</strong>
-          ${item.category ? `<br/><span style="font-size: 11px; color: #64748b;">${item.category}${item.packSize ? ` • ${item.packSize}` : ''}</span>` : ''}
+          <strong>📦 ${item.name}</strong>
+          ${item.category ? `<br/><span style="font-size: 11px; color: #64748b;">🏷️ ${item.category}${item.packSize ? ` • ${item.packSize}` : ''}</span>` : ''}
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b; text-align: center;">
-          ${item.quantity} ${item.unit || 'unit'}(s)
+          🔢 ${item.quantity} ${item.unit || 'unit'}(s)
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #1e293b; text-align: right;">
           ${formatCurrency(item.unitPrice)}
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0284c7; font-weight: 700; text-align: right;">
-          ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}
+          💵 ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}
         </td>
       </tr>`
     )
@@ -531,11 +534,11 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
   const itemsText = items
     .map(
       (item) =>
-        `- ${item.name} | Qty: ${item.quantity} ${item.unit || 'unit'}(s) | Price: ${formatCurrency(item.unitPrice)} | Subtotal: ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}`
+        `- 📦 ${item.name} | 🔢 Qty: ${item.quantity} ${item.unit || 'unit'}(s) | 🏷️ Price: ${formatCurrency(item.unitPrice)} | 💰 Subtotal: ${formatCurrency(item.lineTotal || item.subtotal || item.unitPrice * item.quantity)}`
     )
     .join('\n');
 
-  const subject = `New Order Received — AP Enterprises — #${orderId}`;
+  const subject = `🔔 New Order Received — AP Enterprises — #${orderId} 📦 💰`;
 
   const html = `
 <!DOCTYPE html>
@@ -545,35 +548,35 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
     <tr>
       <td style="background-color: #0f172a; padding: 24px 30px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">AP ENTERPRISES</h1>
-        <p style="color: #94a3b8; margin: 4px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Admin Order Notification</p>
+        <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">AP ENTERPRISES 📦 🥚 🥤</h1>
+        <p style="color: #94a3b8; margin: 4px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">🔔 Admin Order Notification 📋</p>
       </td>
     </tr>
     <tr>
       <td style="padding: 24px 30px;">
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
-          <h2 style="color: #166534; margin: 0 0 4px; font-size: 16px; font-weight: 700;">New Wholesale Order Received</h2>
-          <p style="color: #15803d; margin: 0; font-size: 13px;">Order <strong>#${orderId}</strong> was placed successfully and is ready for fulfillment.</p>
+          <h2 style="color: #166534; margin: 0 0 4px; font-size: 16px; font-weight: 700;">🎉 New Wholesale Order Received</h2>
+          <p style="color: #15803d; margin: 0; font-size: 13px;">Order <strong>#${orderId}</strong> was placed successfully and is ready for fulfillment! 🚀</p>
         </div>
 
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Buyer Details</h3>
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">👤 Buyer Details</h3>
           <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px;">
-            <tr><td width="35%" style="color: #64748b;">Buyer Name:</td><td style="color: #0f172a; font-weight: 600;">${buyerName}</td></tr>
-            <tr><td style="color: #64748b;">Company / Store:</td><td style="color: #0f172a; font-weight: 600;">${buyerCompany}</td></tr>
-            <tr><td style="color: #64748b;">Phone:</td><td style="color: #0f172a; font-weight: 600;">${buyerPhone}</td></tr>
-            <tr><td style="color: #64748b;">Email:</td><td style="color: #0f172a; font-weight: 600;">${buyerEmail}</td></tr>
+            <tr><td width="35%" style="color: #64748b;">👤 Buyer Name:</td><td style="color: #0f172a; font-weight: 600;">${buyerName}</td></tr>
+            <tr><td style="color: #64748b;">🏬 Company / Store:</td><td style="color: #0f172a; font-weight: 600;">${buyerCompany}</td></tr>
+            <tr><td style="color: #64748b;">📞 Phone:</td><td style="color: #0f172a; font-weight: 600;">${buyerPhone}</td></tr>
+            <tr><td style="color: #64748b;">✉️ Email:</td><td style="color: #0f172a; font-weight: 600;">${buyerEmail}</td></tr>
           </table>
         </div>
 
-        <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Ordered Products</h3>
+        <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">🛒 Ordered Products</h3>
         <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
           <thead>
             <tr style="background-color: #f8fafc;">
-              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: left; border-bottom: 1px solid #e2e8f0;">Product</th>
-              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: center; border-bottom: 1px solid #e2e8f0;">Qty</th>
-              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">Price</th>
-              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">Subtotal</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: left; border-bottom: 1px solid #e2e8f0;">📦 Product</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: center; border-bottom: 1px solid #e2e8f0;">🔢 Qty</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">🏷️ Price</th>
+              <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase; color: #64748b; text-align: right; border-bottom: 1px solid #e2e8f0;">💰 Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -582,30 +585,30 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
         </table>
 
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Payment Summary</h3>
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">💳 Payment Summary</h3>
           <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px;">
-            <tr><td style="color: #64748b;">Subtotal:</td><td style="text-align: right; color: #0f172a; font-weight: 600;">${formatCurrency(order.subtotal || totalAmount)}</td></tr>
-            <tr><td style="color: #64748b;">Delivery Charges:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${order.deliveryFee ? formatCurrency(order.deliveryFee) : 'FREE'}</td></tr>
-            <tr><td style="color: #64748b;">Amount Paid:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${formatCurrency(amountPaid)}</td></tr>
-            <tr><td style="color: #64748b;">Amount Due:</td><td style="text-align: right; color: #dc2626; font-weight: 600;">${formatCurrency(amountDue)}</td></tr>
-            <tr style="border-top: 1px solid #cbd5e1;"><td style="color: #0f172a; font-weight: 800; font-size: 14px; padding-top: 8px;">Total Order Amount:</td><td style="text-align: right; color: #0284c7; font-weight: 800; font-size: 16px; padding-top: 8px;">${formatCurrency(totalAmount)}</td></tr>
-            <tr><td style="color: #64748b;">Payment Status:</td><td style="text-align: right; font-weight: 700; color: ${paymentStatus === 'PAID' ? '#16a34a' : paymentStatus === 'PARTIALLY_PAID' ? '#d97706' : '#dc2626'};">${paymentStatus}</td></tr>
+            <tr><td style="color: #64748b;">💵 Subtotal:</td><td style="text-align: right; color: #0f172a; font-weight: 600;">${formatCurrency(order.subtotal || totalAmount)}</td></tr>
+            <tr><td style="color: #64748b;">🚚 Delivery Charges:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${order.deliveryFee ? formatCurrency(order.deliveryFee) : 'FREE 🎉'}</td></tr>
+            <tr><td style="color: #64748b;">✅ Amount Paid:</td><td style="text-align: right; color: #16a34a; font-weight: 600;">${formatCurrency(amountPaid)}</td></tr>
+            <tr><td style="color: #64748b;">⚠️ Amount Due:</td><td style="text-align: right; color: #dc2626; font-weight: 600;">${formatCurrency(amountDue)}</td></tr>
+            <tr style="border-top: 1px solid #cbd5e1;"><td style="color: #0f172a; font-weight: 800; font-size: 14px; padding-top: 8px;">💰 Total Order Amount:</td><td style="text-align: right; color: #0284c7; font-weight: 800; font-size: 16px; padding-top: 8px;">${formatCurrency(totalAmount)}</td></tr>
+            <tr><td style="color: #64748b;">💳 Payment Status:</td><td style="text-align: right; font-weight: 700; color: ${paymentStatus === 'PAID' ? '#16a34a' : paymentStatus === 'PARTIALLY_PAID' ? '#d97706' : '#dc2626'};">${paymentStatus === 'PAID' ? '✅ PAID' : paymentStatus === 'PARTIALLY_PAID' ? '⏳ PARTIALLY PAID' : '⚠️ DUE'}</td></tr>
           </table>
         </div>
 
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
-          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">Delivery Location</h3>
-          <p style="margin: 0 0 4px; font-size: 13px; color: #0f172a; font-weight: 600;">${addr.contactName || buyerName} (${addr.phone || buyerPhone})</p>
-          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${addrLine1}</p>
+          <h3 style="margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569;">📍 Delivery Location</h3>
+          <p style="margin: 0 0 4px; font-size: 13px; color: #0f172a; font-weight: 600;">👤 ${addr.contactName || buyerName} (📞 ${addr.phone || buyerPhone})</p>
+          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">🏠 ${addrLine1}</p>
           ${addrLine2 ? `<p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${addrLine2}</p>` : ''}
-          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">${[addrCity, addrState, addrPincode].filter(Boolean).join(', ')}</p>
-          ${addrNotes ? `<p style="margin: 6px 0 0; font-size: 12px; color: #b45309; background-color: #fef3c7; padding: 6px 10px; border-radius: 6px;">Note: ${addrNotes}</p>` : ''}
+          <p style="margin: 0 0 2px; font-size: 13px; color: #334155;">📍 ${[addrCity, addrState, addrPincode].filter(Boolean).join(', ')}</p>
+          ${addrNotes ? `<p style="margin: 6px 0 0; font-size: 12px; color: #b45309; background-color: #fef3c7; padding: 6px 10px; border-radius: 6px;">📝 Note: ${addrNotes}</p>` : ''}
         </div>
       </td>
     </tr>
     <tr>
       <td style="padding: 16px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
-        <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Order Dispatch System</p>
+        <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Order Dispatch System 📦 🥚 🥤</p>
       </td>
     </tr>
   </table>
@@ -614,51 +617,57 @@ export const sendAdminNewOrderNotification = async ({ order, buyer }) => {
   `.trim();
 
   const text = `
-New wholesale order received.
+🔔 New wholesale order received! 📦 💰
 
-Order ID:
+🆔 Order ID:
 #${orderId}
 
-Buyer:
+👤 Buyer:
 ${buyerName}
 
-Company/Store:
+🏬 Company/Store:
 ${buyerCompany}
 
-Phone:
+📞 Phone:
 ${buyerPhone}
 
-Email:
+✉️ Email:
 ${buyerEmail}
 
 --------------------------------
 
-Ordered Products:
+🛒 Ordered Products:
 
 ${itemsText}
 
 --------------------------------
 
-Total:
+💵 Subtotal:
+${formatCurrency(order.subtotal || totalAmount)}
+
+🚚 Delivery Fee:
+${order.deliveryFee ? formatCurrency(order.deliveryFee) : 'FREE 🎉'}
+
+💰 Total:
 ${formatCurrency(totalAmount)}
 
-Amount Paid:
+✅ Amount Paid:
 ${formatCurrency(amountPaid)}
 
-Amount Due:
+⚠️ Amount Due:
 ${formatCurrency(amountDue)}
 
-Payment Status:
+💳 Payment Status:
 ${paymentStatus}
 
 --------------------------------
 
-Delivery Address:
+📍 Delivery Address:
 
 ${addrLine1}
 ${addrLine2 ? addrLine2 + '\n' : ''}${addrCity}, ${addrState} - ${addrPincode}
 
-Delivery Notes:
+📝 Delivery Notes:
 ${addrNotes || 'None'}
   `.trim();
 
