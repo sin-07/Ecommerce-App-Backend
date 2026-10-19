@@ -115,7 +115,17 @@ const getStatusConfig = (status) => {
  * Generates prominent, modern HTML for 6-digit OTP verification email.
  */
 export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
-  const spacedOtp = String(otp || '').split('').join(' ');
+  const cleanOtp = String(otp || '').replace(/\D/g, '');
+  const displayDigits = (cleanOtp.length === 6 ? cleanOtp : String(otp || '').padEnd(6, '•')).slice(0, 6).split('');
+
+  const digitsHtml = displayDigits
+    .map(
+      (digit) => `
+        <td align="center" valign="middle" class="otp-cell" style="width: 42px; height: 52px; background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro Display', monospace; font-size: 26px; font-weight: 800; color: #1d4ed8; text-align: center; box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);">
+          ${digit}
+        </td>`
+    )
+    .join('');
 
   return `
 <!DOCTYPE html>
@@ -123,62 +133,110 @@ export const generateOtpEmailHtml = ({ otp, expiryMinutes = 10 }) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>AP Enterprises Verification Code</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      supported-color-schemes: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #0b1120 !important; }
+      .card-box { background-color: #1e293b !important; border-color: #334155 !important; }
+      .heading-text { color: #f8fafc !important; }
+      .body-text { color: #94a3b8 !important; }
+      .otp-cell { background-color: #0f172a !important; border-color: #3b82f6 !important; color: #60a5fa !important; }
+      .footer-box { background-color: #0f172a !important; border-color: #334155 !important; }
+      .footer-text { color: #64748b !important; }
+    }
+  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 32px 12px;">
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-bg" style="background-color: #f1f5f9; padding: 32px 12px;">
     <tr>
       <td align="center">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);">
-          <!-- HEADER -->
+        <!-- Main Card Container -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="card-box" style="max-width: 480px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);">
+          
+          <!-- Header -->
           <tr>
-            <td style="background-color: #0f172a; padding: 28px 30px; text-align: left;">
-              <div style="display: inline-block; background-color: #1d4ed8; color: #ffffff; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
-                SECURITY VERIFICATION
-              </div>
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900;">
+            <td style="padding: 36px 30px 20px 30px; text-align: center;">
+              <!-- AP Monogram Badge -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 14px auto;">
+                <tr>
+                  <td align="center" style="width: 52px; height: 52px; background-color: #1d4ed8; border-radius: 14px; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);">
+                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 900; font-size: 22px; color: #ffffff; letter-spacing: -0.5px; line-height: 52px; display: block;">AP</span>
+                  </td>
+                </tr>
+              </table>
+
+              <h1 class="heading-text" style="margin: 0 0 3px 0; color: #0f172a; font-size: 20px; font-weight: 900; letter-spacing: 0.5px;">
                 AP ENTERPRISES
               </h1>
-              <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 12px;">
-                Beverages &bull; Eggs &bull; Wholesale Supplies
+              <p style="margin: 0; color: #64748b; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Wholesale Beverages &bull; Eggs &bull; Supplies
               </p>
             </td>
           </tr>
 
-          <!-- BODY -->
+          <!-- Divider -->
           <tr>
-            <td style="padding: 32px 30px; text-align: center;">
-              <h2 style="margin: 0 0 8px 0; color: #0f172a; font-size: 20px; font-weight: 900;">
-                Verify Your Business Email
-              </h2>
-              <p style="margin: 0 0 24px 0; color: #64748b; font-size: 14px; line-height: 1.5;">
-                Enter the 6-digit verification code below in the AP Enterprises application to verify your wholesale account:
-              </p>
+            <td style="padding: 0 30px;">
+              <div style="border-top: 1px solid #f1f5f9; width: 100%;"></div>
+            </td>
+          </tr>
 
-              <!-- PROMINENT OTP DISPLAY -->
-              <div style="background-color: #eff6ff; border: 2px dashed #3b82f6; border-radius: 12px; padding: 20px 16px; margin: 20px 0; text-align: center;">
-                <span style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #1d4ed8; display: inline-block;">
-                  ${spacedOtp}
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 28px 30px 24px 30px; text-align: center;">
+              <!-- Security Badge Pill -->
+              <div style="display: inline-block; background-color: #eff6ff; border: 1px solid #dbeafe; padding: 5px 14px; border-radius: 20px; margin-bottom: 18px;">
+                <span style="color: #1d4ed8; font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;">
+                  &#128274; Security Verification
                 </span>
               </div>
 
-              <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569; font-weight: 600;">
-                ⏱ This verification code expires in <strong>${expiryMinutes} minutes</strong>.
+              <h2 class="heading-text" style="margin: 0 0 8px 0; color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: -0.4px;">
+                Verify Your Account
+              </h2>
+              <p class="body-text" style="margin: 0 auto 24px auto; color: #475569; font-size: 14px; line-height: 1.5; max-width: 360px;">
+                Use the 6-digit verification code below to verify your business wholesale account:
               </p>
-              <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                Never share this code with anyone. AP Enterprises staff will never ask for your verification code.
+
+              <!-- 6-DIGIT OTP TILES (Guaranteed Never to Wrap) -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 22px auto; border-collapse: separate; border-spacing: 6px;">
+                <tr>
+                  ${digitsHtml}
+                </tr>
+              </table>
+
+              <!-- Expiry Alert -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; max-width: 360px; width: 100%;">
+                <tr>
+                  <td style="padding: 10px 14px; text-align: center;">
+                    <span style="font-size: 13px; vertical-align: middle;">&#9201;</span>
+                    <span style="font-size: 12.5px; color: #92400e; font-weight: 600; vertical-align: middle; margin-left: 4px;">
+                      This code expires in <strong>${expiryMinutes} minutes</strong>
+                    </span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.5;">
+                &#128737;&#65039; <strong>Security Notice:</strong> AP Enterprises staff will never ask for your code. Never share this code with anyone.
               </p>
             </td>
           </tr>
 
-          <!-- FOOTER -->
+          <!-- Footer -->
           <tr>
-            <td style="padding: 20px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
-              <p style="margin: 0 0 4px 0; font-size: 11.5px; color: #64748b;">
+            <td class="footer-box" style="padding: 22px 30px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
+              <p class="footer-text" style="margin: 0 0 6px 0; font-size: 11.5px; color: #64748b;">
                 If you did not request this verification, you can safely ignore this email.
               </p>
-              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-                &copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Beverage & Egg Distribution
+              <p class="footer-text" style="margin: 0; font-size: 11px; color: #94a3b8;">
+                &copy; ${new Date().getFullYear()} AP Enterprises &bull; Wholesale Distribution
               </p>
             </td>
           </tr>
